@@ -4,56 +4,72 @@ import (
 	"flag"
 	"fmt"
 	"os"
-
-	"github.com/Wa4h1h/port-scanner/pkg/scanner"
 )
 
-var (
+func init() {
+}
+
+type settings struct {
 	ports      string
 	hosts      string
+	timeout    int
+	cscan      int
 	tcp        bool
 	udp        bool
 	vanilla    bool
 	syn        bool
-	timeout    int
-	cscan      int
 	useDefault bool
-)
-
-func init() {
-	flag.StringVar(&ports, "p", "", "ports to scan")
-	flag.StringVar(&hosts, "hosts", "", "hosts/ips to scan")
-	flag.BoolVar(&vanilla, "v", false, "scan all 65535 ports")
-	flag.BoolVar(&syn, "syn", false, "enable tcp syn scan")
-	flag.BoolVar(&tcp, "T", true, "run tcp scan")
-	flag.BoolVar(&udp, "U", false, "run udp scan")
-	flag.IntVar(&timeout, "tS", scanner.DefaultTimeout, "port scan timeout in seconds")
-	flag.IntVar(&cscan, "cS", scanner.DefaultCScan, "number of concurrent port scans")
-	flag.BoolVar(&useDefault, "dS", true, "use default scanner config")
 }
 
-type Cli struct{}
+type Cli struct {
+	flags *flag.FlagSet
+	s     *settings
+}
 
 func NewCli() *Cli {
-	return &Cli{}
+	return &Cli{
+		s: new(settings),
+	}
 }
 
-func (c *Cli) Parse() {
-	flag.Usage = func() {
+func (c *Cli) registerFlags() {
+	c.flags = flag.NewFlagSet("pscan", flag.ExitOnError)
+
+	c.flags.StringVar(&c.s.ports, "p", Ports, "ports to scan")
+	c.flags.StringVar(&c.s.hosts, "hosts", "", "hosts/ips to scan")
+	c.flags.BoolVar(&c.s.vanilla, "v", Vanilla, "scan all 65535 ports")
+	c.flags.BoolVar(&c.s.syn, "syn", SYN, "enable tcp syn scan")
+	c.flags.BoolVar(&c.s.tcp, "T", TCP, "run tcp scan")
+	c.flags.BoolVar(&c.s.udp, "U", UDP, "run udp scan")
+	c.flags.IntVar(&c.s.timeout, "tS", DefaultTimeout, "port scan timeout in seconds")
+	c.flags.IntVar(&c.s.cscan, "cS", DefaultCScan, "number of concurrent port scans")
+	c.flags.BoolVar(&c.s.useDefault, "dS", UseDefaultSettings, "use default scanner config")
+}
+
+func (c *Cli) parse(args []string) error {
+	c.registerFlags()
+	c.flags.Usage = func() {
 		fmt.Fprintln(os.Stdout, `Usage: pscan [options]
 Use pscan -h or --help for more information.`)
 		fmt.Fprintln(os.Stdout, "Options:")
-		flag.PrintDefaults()
+		c.flags.PrintDefaults()
 	}
 
-	flag.Parse()
-
-	if hosts == "" {
-		fmt.Fprintln(os.Stderr, "hosts are missing: provide at least one host/ip")
-		os.Exit(1)
+	if err := c.flags.Parse(args); err != nil {
+		return fmt.Errorf("error: parse args: %w", err)
 	}
+
+	if c.s.hosts == "" {
+		return ErrHostsMissing
+	}
+
+	return nil
 }
 
-func (c *Cli) Run() error {
+func (c *Cli) Run(args []string) error {
+	if err := c.parse(args); err != nil {
+		return err
+	}
+
 	return nil
 }

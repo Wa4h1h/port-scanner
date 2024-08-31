@@ -21,8 +21,6 @@ linters:
     - forbidigo
     - forcetypeassert
     - funlen
-    - gochecknoglobals
-    - gochecknoinits
     - gocognit
     - goconst
     - gocritic
@@ -80,7 +78,6 @@ linters:
     - whitespace
     - wrapcheck
     - wsl
-
 linters-settings:
   tagliatelle:
     case:
@@ -95,7 +92,6 @@ linters-settings:
   nestif:
     min-complexity: 9
   govet:
-    check-shadowing: true
     enable-all: true
   gocognit:
     min-complexity: 35

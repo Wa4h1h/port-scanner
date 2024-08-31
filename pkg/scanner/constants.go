@@ -1,6 +1,6 @@
 package scanner
 
 const (
-	DefaultTimeout int = 5
+	DefaultTimeout int = 3
 	DefaultCScan   int = 3
 )
