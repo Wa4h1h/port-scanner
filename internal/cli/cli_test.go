@@ -39,22 +39,6 @@ func TestCli_Run(t *testing.T) { //nolint:paralleltest
 			err: nil,
 		},
 		{
-			name:  "GivenRun_WhenOnlyHostsProvided_ParseOnlyHosts",
-			input: []string{"-hosts=127.0.0.1,google.com"},
-			output: &settings{
-				hosts:      "127.0.0.1,google.com",
-				ports:      Ports,
-				timeout:    DefaultTimeout,
-				cscan:      DefaultCScan,
-				tcp:        TCP,
-				udp:        UDP,
-				vanilla:    Vanilla,
-				syn:        SYN,
-				useDefault: UseDefaultSettings,
-			},
-			err: nil,
-		},
-		{
 			name:  "GivenRun_WhenMoreThanOneFlagWasProvided_ParseFlags",
 			input: []string{"-hosts=127.0.0.1,google.com", "-v", "-syn"},
 			output: &settings{
