@@ -92,16 +92,19 @@ func (c *Cli) Run(args []string) error {
 	hosts := strings.Split(c.s.hosts, ",")
 	ports := strings.Split(c.s.ports, ",")
 
-	if len(hosts) > 1 && (len(ports) == 1 && ports[0] != "") {
-		sweepScanResults, err := s.SweepScan(hosts, ports[0])
-		if err != nil {
-			return err
+	switch {
+	case len(hosts) > 1:
+		if len(ports) == 1 && ports[0] != "" {
+			sweepScanResults, err := s.SweepScan(hosts, ports[0])
+			if err != nil {
+				return err
+			}
+
+			c.printSweepScanResults(sweepScanResults)
+		} else {
+			fmt.Fprintln(os.Stderr, "provide at least one port to sweep scan")
 		}
-
-		c.printSweepScanResults(sweepScanResults)
-	}
-
-	if len(hosts) == 1 {
+	case len(hosts) == 1:
 		port := ports[0]
 		scanResults := make([]scanner.ScanResult, 0)
 
