@@ -121,6 +121,10 @@ func (c *Cli) Run(args []string) error {
 					)
 
 					rangeStr := strings.Split(port, "-")
+					if len(rangeStr) != 2 {
+						return ErrRangeStrLength
+					}
+
 					rangePorts := make([]string, 0)
 
 					start, err = strconv.Atoi(rangeStr[0])
