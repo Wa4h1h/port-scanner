@@ -10,5 +10,5 @@ const (
 	SYN                bool   = false
 	Vanilla            bool   = false
 	UseDefaultSettings bool   = true
-	Ports              string = "80"
+	Ports              string = ""
 )

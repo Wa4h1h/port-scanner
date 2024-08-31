@@ -8,13 +8,14 @@ import (
 )
 
 //nolint:funlen
-func TestCli_Run(t *testing.T) { //nolint:paralleltest
-	c := NewCli()
+func TestCli_Run(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
-		name   string
+		err    error
 		input  []string
 		output *settings
-		err    error
+		name   string
 	}{
 		{
 			name:   "GivenRun_WhenHostMissing_PrintHostMissing",
@@ -56,8 +57,11 @@ func TestCli_Run(t *testing.T) { //nolint:paralleltest
 		},
 	}
 
-	for _, row := range testCases { //nolint:paralleltest
+	for _, row := range testCases {
 		t.Run(row.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := NewCli()
 			err := c.Run(row.input)
 
 			if row.err != nil {
