@@ -10,9 +10,6 @@ import (
 	"github.com/Wa4h1h/port-scanner/pkg/scanner"
 )
 
-func init() {
-}
-
 type settings struct {
 	ports      string
 	hosts      string
@@ -106,7 +103,7 @@ func (c *Cli) Run(args []string) error {
 		}
 	case len(hosts) == 1:
 		port := ports[0]
-		scanResults := make([]scanner.ScanResult, 0)
+		scanResults := make([]*scanner.ScanResult, 0)
 
 		var err error
 
@@ -143,16 +140,10 @@ func (c *Cli) Run(args []string) error {
 
 					scanResults, err = s.RangeScan(hosts[0], rangePorts)
 				} else {
-					var scanResult *scanner.ScanResult
-
 					if cfg.SYN {
-						scanResult, err = s.SynScan(hosts[0], port)
+						scanResults, err = s.SynScan(hosts[0], port)
 					} else {
-						scanResult, err = s.Scan(hosts[0], port)
-					}
-
-					if scanResult != nil {
-						scanResults = append(scanResults, *scanResult)
+						scanResults, err = s.Scan(hosts[0], port)
 					}
 				}
 			} else {
@@ -168,14 +159,14 @@ func (c *Cli) Run(args []string) error {
 		}
 
 		for _, res := range scanResults {
-			c.printScanResults(&res)
+			c.printScanResults(res)
 		}
 	}
 
 	return nil
 }
 
-func (c *Cli) printSweepScanResults(results []scanner.SweepScanResult) {
+func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult) {
 }
 
 func (c *Cli) printScanResults(result *scanner.ScanResult) {
