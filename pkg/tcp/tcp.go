@@ -1,4 +1,4 @@
-package scanner
+package tcp
 
 type TCPHeader struct{}
 

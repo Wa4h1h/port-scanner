@@ -10,9 +10,9 @@ func NewScanner(c *Config) *Scanner {
 	s := new(Scanner)
 
 	if c != nil {
-		s.cfg = c
+		s.Cfg = c
 	} else {
-		s.cfg = &DefaultConfig
+		s.Cfg = &DefaultConfig
 	}
 
 	return s
@@ -40,11 +40,11 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 	resErrChan := make(chan *scanResultError, 2)
 	results := make([]*ScanResult, 2)
 
-	if !s.cfg.UDP && !s.cfg.TCP {
+	if !s.Cfg.UDP && !s.Cfg.TCP {
 		return nil, ErrAtLeastOneProtocolMustBeUsed
 	}
 
-	if s.cfg.TCP {
+	if s.Cfg.TCP {
 		wg.Add(1)
 
 		go func(r chan<- *scanResultError) {
@@ -59,7 +59,7 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 		}(resErrChan)
 	}
 
-	if s.cfg.UDP {
+	if s.Cfg.UDP {
 		wg.Add(1)
 
 		go func(r chan<- *scanResultError) {

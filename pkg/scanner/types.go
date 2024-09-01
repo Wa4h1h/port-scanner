@@ -21,7 +21,7 @@ type Config struct {
 }
 
 type Scanner struct {
-	cfg *Config
+	Cfg *Config
 }
 
 var DefaultConfig = Config{
