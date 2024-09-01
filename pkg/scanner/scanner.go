@@ -7,9 +7,15 @@ import (
 )
 
 func NewScanner(c *Config) *Scanner {
-	return &Scanner{
-		cfg: c,
+	s := new(Scanner)
+
+	if c != nil {
+		s.cfg = c
+	} else {
+		s.cfg = &DefaultConfig
 	}
+
+	return s
 }
 
 func (s *Scanner) udpScan(host, port string) (*ScanResult, error) {
@@ -34,18 +40,24 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 	resErrChan := make(chan *scanResultError, 2)
 	results := make([]*ScanResult, 2)
 
-	wg.Add(1)
+	if !s.cfg.UDP && !s.cfg.TCP {
+		return nil, ErrAtLeastOneProtocolMustBeUsed
+	}
 
-	go func(r chan<- *scanResultError) {
-		defer wg.Done()
+	if s.cfg.TCP {
+		wg.Add(1)
 
-		res, err := s.tcpScan(host, port)
+		go func(r chan<- *scanResultError) {
+			defer wg.Done()
 
-		r <- &scanResultError{
-			err:    err,
-			result: res,
-		}
-	}(resErrChan)
+			res, err := s.tcpScan(host, port)
+
+			r <- &scanResultError{
+				err:    err,
+				result: res,
+			}
+		}(resErrChan)
+	}
 
 	if s.cfg.UDP {
 		wg.Add(1)

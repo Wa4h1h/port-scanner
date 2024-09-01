@@ -27,15 +27,14 @@ func TestCli_Run(t *testing.T) {
 			name:  "GivenRun_WhenOnlyHostsProvided_ParseOnlyHosts",
 			input: []string{"-hosts=127.0.0.1,google.com"},
 			output: &settings{
-				hosts:      "127.0.0.1,google.com",
-				ports:      Ports,
-				timeout:    DefaultTimeout,
-				cscan:      DefaultCScan,
-				tcp:        TCP,
-				udp:        UDP,
-				vanilla:    Vanilla,
-				syn:        SYN,
-				useDefault: UseDefaultSettings,
+				hosts:   "127.0.0.1,google.com",
+				ports:   Ports,
+				timeout: DefaultTimeout,
+				cscan:   DefaultCScan,
+				tcp:     TCP,
+				udp:     UDP,
+				vanilla: Vanilla,
+				syn:     SYN,
 			},
 			err: nil,
 		},
@@ -43,15 +42,14 @@ func TestCli_Run(t *testing.T) {
 			name:  "GivenRun_WhenMoreThanOneFlagWasProvided_ParseFlags",
 			input: []string{"-hosts=127.0.0.1,google.com", "-v", "-syn"},
 			output: &settings{
-				hosts:      "127.0.0.1,google.com",
-				ports:      Ports,
-				timeout:    DefaultTimeout,
-				cscan:      DefaultCScan,
-				tcp:        TCP,
-				udp:        UDP,
-				vanilla:    true,
-				syn:        true,
-				useDefault: UseDefaultSettings,
+				hosts:   "127.0.0.1,google.com",
+				ports:   Ports,
+				timeout: DefaultTimeout,
+				cscan:   DefaultCScan,
+				tcp:     TCP,
+				udp:     UDP,
+				vanilla: true,
+				syn:     true,
 			},
 			err: nil,
 		},
@@ -76,7 +74,6 @@ func TestCli_Run(t *testing.T) {
 				assert.Equal(t, row.output.udp, c.s.udp)
 				assert.Equal(t, row.output.vanilla, c.s.vanilla)
 				assert.Equal(t, row.output.syn, c.s.syn)
-				assert.Equal(t, row.output.useDefault, c.s.useDefault)
 			}
 		})
 	}

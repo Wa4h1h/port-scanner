@@ -11,15 +11,14 @@ import (
 )
 
 type settings struct {
-	ports      string
-	hosts      string
-	timeout    int
-	cscan      int
-	tcp        bool
-	udp        bool
-	vanilla    bool
-	syn        bool
-	useDefault bool
+	ports   string
+	hosts   string
+	timeout int
+	cscan   int
+	tcp     bool
+	udp     bool
+	vanilla bool
+	syn     bool
 }
 
 type Cli struct {
@@ -44,7 +43,6 @@ func (c *Cli) registerFlags() {
 	c.flags.BoolVar(&c.s.udp, "U", UDP, "run udp scan")
 	c.flags.IntVar(&c.s.timeout, "tS", DefaultTimeout, "port scan timeout in seconds")
 	c.flags.IntVar(&c.s.cscan, "cS", DefaultCScan, "number of concurrent port scans")
-	c.flags.BoolVar(&c.s.useDefault, "dS", UseDefaultSettings, "use default scanner config")
 }
 
 func (c *Cli) parse(args []string) error {
@@ -68,24 +66,18 @@ Use pscan -h or --help for more information.`)
 }
 
 func (c *Cli) Run(args []string) error {
-	var cfg scanner.Config
-
 	if err := c.parse(args); err != nil {
 		return err
 	}
 
-	if c.s.useDefault {
-		cfg = scanner.DefaultConfig
-	} else {
-		cfg.TCP = c.s.tcp
-		cfg.UDP = c.s.udp
-		cfg.SYN = c.s.syn
-		cfg.Timeout = c.s.timeout
-		cfg.CScan = c.s.cscan
+	cfg := scanner.Config{
+		TCP:     c.s.tcp,
+		UDP:     c.s.udp,
+		SYN:     c.s.syn,
+		Timeout: c.s.timeout,
+		CScan:   c.s.cscan,
 	}
-
 	s := scanner.NewScanner(&cfg)
-
 	hosts := strings.Split(c.s.hosts, ",")
 	ports := strings.Split(c.s.ports, ",")
 
@@ -139,12 +131,25 @@ func (c *Cli) Run(args []string) error {
 					}
 
 					scanResults, err = s.RangeScan(hosts[0], rangePorts)
-				} else {
-					if cfg.SYN {
-						scanResults, err = s.SynScan(hosts[0], port)
-					} else {
-						scanResults, err = s.Scan(hosts[0], port)
+					if err != nil {
+						return err
 					}
+				} else {
+					var tmp []*scanner.ScanResult
+
+					if cfg.SYN {
+						tmp, err = s.SynScan(hosts[0], port)
+						if err != nil {
+							return err
+						}
+					}
+
+					tmp, err = s.Scan(hosts[0], port)
+					if err != nil {
+						return err
+					}
+
+					scanResults = append(scanResults, tmp...)
 				}
 			} else {
 				scanResults, err = s.VanillaScan(hosts[0])
@@ -152,10 +157,6 @@ func (c *Cli) Run(args []string) error {
 		case len(ports) > 1:
 			scanResults, err = s.RangeScan(hosts[0], ports)
 
-		}
-
-		if err != nil {
-			return err
 		}
 
 		for _, res := range scanResults {
