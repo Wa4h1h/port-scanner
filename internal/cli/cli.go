@@ -77,7 +77,7 @@ func (c *Cli) Run(args []string) error {
 		Timeout: c.s.timeout,
 		CScan:   c.s.cscan,
 	}
-	s := scanner.NewScanner(&cfg)
+	s := scanner.NewScanExecutor(&cfg)
 	hosts := strings.Split(c.s.hosts, ",")
 	ports := strings.Split(c.s.ports, ",")
 

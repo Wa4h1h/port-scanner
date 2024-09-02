@@ -9,7 +9,7 @@ import (
 // make sure we conform to ScanExecutor.
 var _ ScanExecutor = &Scanner{}
 
-func NewScanner(c *Config) ScanExecutor {
+func NewScanExecutor(c *Config) ScanExecutor {
 	s := new(Scanner)
 
 	if c != nil {
@@ -38,8 +38,8 @@ type scanResultError struct {
 func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 	var wg sync.WaitGroup
 
-	resErrChan := make(chan *scanResultError, 2)
-	results := make([]*ScanResult, 2)
+	resErrChan := make(chan *scanResultError, NumberOfScans)
+	results := make([]*ScanResult, NumberOfScans)
 
 	if !s.Cfg.UDP && !s.Cfg.TCP {
 		return nil, ErrAtLeastOneProtocolMustBeUsed

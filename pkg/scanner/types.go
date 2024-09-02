@@ -33,9 +33,9 @@ var DefaultConfig = Config{
 }
 
 type ScanExecutor interface {
-	Scan(string, string) ([]*ScanResult, error)
-	SynScan(string, string) ([]*ScanResult, error)
-	RangeScan(string, []string) ([]*ScanResult, error)
-	VanillaScan(string) ([]*ScanResult, error)
-	SweepScan([]string, string) ([]*SweepScanResult, error)
+	Scan(host string, port string) ([]*ScanResult, error)
+	SynScan(host string, port string) ([]*ScanResult, error)
+	RangeScan(host string, ports []string) ([]*ScanResult, error)
+	VanillaScan(host string) ([]*ScanResult, error)
+	SweepScan(hosts []string, port string) ([]*SweepScanResult, error)
 }
