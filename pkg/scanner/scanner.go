@@ -6,7 +6,10 @@ import (
 	"sync"
 )
 
-func NewScanner(c *Config) *Scanner {
+// make sure we conform to ScanExecutor.
+var _ ScanExecutor = &Scanner{}
+
+func NewScanner(c *Config) ScanExecutor {
 	s := new(Scanner)
 
 	if c != nil {
@@ -31,11 +34,9 @@ type scanResultError struct {
 	err    error
 }
 
+// Scan performs TCP and UDP port scanning if enabled in the configuration.
 func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
-	var (
-		wg  sync.WaitGroup
-		err error
-	)
+	var wg sync.WaitGroup
 
 	resErrChan := make(chan *scanResultError, 2)
 	results := make([]*ScanResult, 2)
@@ -80,6 +81,8 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 		close(r)
 	}(resErrChan)
 
+	var err error
+
 	for val := range resErrChan {
 		if val.err != nil {
 			err = errors.Join(err, val.err)
@@ -95,10 +98,12 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 	return results, nil
 }
 
+// SynScan performs a TCP half-open connection scan if enabled in the configuration.
 func (s *Scanner) SynScan(host, port string) ([]*ScanResult, error) {
 	return nil, nil
 }
 
+// RangeScan scan all the provided ports(tcp,udp and syn if enabled) on the provided host.
 func (s *Scanner) RangeScan(host string,
 	ports []string,
 ) ([]*ScanResult, error) {
@@ -106,10 +111,12 @@ func (s *Scanner) RangeScan(host string,
 	return nil, nil
 }
 
+// VanillaScan scans the 65535 ports(tcp,udp and syn if enabled).
 func (s *Scanner) VanillaScan(host string) ([]*ScanResult, error) {
 	return nil, nil
 }
 
+// SweepScan scans the port (TCP, UDP and SYN if enabled) on each host from the provided host list.
 func (s *Scanner) SweepScan(hosts []string,
 	port string,
 ) ([]*SweepScanResult, error) {

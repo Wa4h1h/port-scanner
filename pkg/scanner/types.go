@@ -31,3 +31,11 @@ var DefaultConfig = Config{
 	Timeout: DefaultTimeout,
 	CScan:   DefaultCScan,
 }
+
+type ScanExecutor interface {
+	Scan(string, string) ([]*ScanResult, error)
+	SynScan(string, string) ([]*ScanResult, error)
+	RangeScan(string, []string) ([]*ScanResult, error)
+	VanillaScan(string) ([]*ScanResult, error)
+	SweepScan([]string, string) ([]*SweepScanResult, error)
+}

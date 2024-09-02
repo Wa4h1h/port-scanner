@@ -142,6 +142,8 @@ func (c *Cli) Run(args []string) error {
 						if err != nil {
 							return err
 						}
+
+						scanResults = append(scanResults, tmp...)
 					}
 
 					tmp, err = s.Scan(hosts[0], port)

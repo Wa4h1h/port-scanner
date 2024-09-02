@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func hostToIP(host string) (string, error) {
+func HostToIP(host string) (string, error) {
 	ips, err := net.LookupHost(host)
 	if err != nil {
 		return "", fmt.Errorf("error: lookup host: %w", err)
