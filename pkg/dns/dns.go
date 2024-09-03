@@ -6,6 +6,8 @@ import (
 	"net"
 )
 
+// HostToIP resolves the given host
+// If multiple IP addresses are assigned to the host, a random one is returned
 func HostToIP(host string) (string, error) {
 	ips, err := net.LookupHost(host)
 	if err != nil {

@@ -1,5 +1,7 @@
 package scanner
 
+import "github.com/Wa4h1h/port-scanner/pkg/ping"
+
 type ScanResult struct {
 	Service string
 	State   string
@@ -22,6 +24,7 @@ type Config struct {
 
 type Scanner struct {
 	Cfg *Config
+	Pg  ping.Pinger
 }
 
 var DefaultConfig = Config{

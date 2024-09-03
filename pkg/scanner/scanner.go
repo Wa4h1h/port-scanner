@@ -3,7 +3,12 @@ package scanner
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
+
+	"github.com/Wa4h1h/port-scanner/pkg/dns"
+
+	"github.com/Wa4h1h/port-scanner/pkg/ping"
 )
 
 // make sure we conform to ScanExecutor.
@@ -18,15 +23,36 @@ func NewScanExecutor(c *Config) ScanExecutor {
 		s.Cfg = &DefaultConfig
 	}
 
+	s.Pg = ping.NewPinger(s.Cfg.Timeout)
+
 	return s
 }
 
-func (s *Scanner) udpScan(host, port string) (*ScanResult, error) {
+func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
 	return nil, nil
 }
 
-func (s *Scanner) tcpScan(host, port string) (*ScanResult, error) {
+func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 	return nil, nil
+}
+
+// getIP resolves host and ping it
+func (s *Scanner) getIP(host string) (string, error) {
+	ip, err := dns.HostToIP(host)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Pg.Ping(ip)
+	if err != nil {
+		if strings.Contains(err.Error(), "sendto: no route to host") {
+			return "", fmt.Errorf("%s %w", host, ErrHostUnavailable)
+		}
+
+		return "", err
+	}
+
+	return ip, err
 }
 
 type scanResultError struct {
@@ -36,10 +62,19 @@ type scanResultError struct {
 
 // Scan performs TCP and UDP port scanning if enabled in the configuration.
 func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
-	var wg sync.WaitGroup
+	var (
+		wg  sync.WaitGroup
+		err error
+		ip  string
+	)
 
 	resErrChan := make(chan *scanResultError, NumberOfScans)
 	results := make([]*ScanResult, NumberOfScans)
+
+	ip, err = s.getIP(host)
+	if err != nil {
+		return nil, err
+	}
 
 	if !s.Cfg.UDP && !s.Cfg.TCP {
 		return nil, ErrAtLeastOneProtocolMustBeUsed
@@ -51,7 +86,7 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 		go func(r chan<- *scanResultError) {
 			defer wg.Done()
 
-			res, err := s.tcpScan(host, port)
+			res, err := s.tcpScan(ip, port)
 
 			r <- &scanResultError{
 				err:    err,
@@ -66,7 +101,7 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 		go func(r chan<- *scanResultError) {
 			defer wg.Done()
 
-			res, err := s.udpScan(host, port)
+			res, err := s.udpScan(ip, port)
 
 			r <- &scanResultError{
 				err:    err,
@@ -80,8 +115,6 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 
 		close(r)
 	}(resErrChan)
-
-	var err error
 
 	for val := range resErrChan {
 		if val.err != nil {
@@ -98,7 +131,7 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 	return results, nil
 }
 
-// SynScan performs a TCP half-open connection scan if enabled in the configuration.
+// SynScan performs a TCP half-open connection scan.
 func (s *Scanner) SynScan(host, port string) ([]*ScanResult, error) {
 	return nil, nil
 }
@@ -111,12 +144,12 @@ func (s *Scanner) RangeScan(host string,
 	return nil, nil
 }
 
-// VanillaScan scans the 65535 ports(tcp,udp and syn if enabled).
+// VanillaScan scans 1-65535 ports(tcp,udp and syn if enabled).
 func (s *Scanner) VanillaScan(host string) ([]*ScanResult, error) {
 	return nil, nil
 }
 
-// SweepScan scans the port (TCP, UDP and SYN if enabled) on each host from the provided host list.
+// SweepScan scans port (TCP, UDP and SYN if enabled) on each host from the provided host list.
 func (s *Scanner) SweepScan(hosts []string,
 	port string,
 ) ([]*SweepScanResult, error) {

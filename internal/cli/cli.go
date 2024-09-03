@@ -155,9 +155,15 @@ func (c *Cli) Run(args []string) error {
 				}
 			} else {
 				scanResults, err = s.VanillaScan(hosts[0])
+				if err != nil {
+					return err
+				}
 			}
 		case len(ports) > 1:
 			scanResults, err = s.RangeScan(hosts[0], ports)
+			if err != nil {
+				return err
+			}
 
 		}
 
