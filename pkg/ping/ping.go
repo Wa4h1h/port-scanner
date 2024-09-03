@@ -14,9 +14,10 @@ import (
 	"golang.org/x/net/icmp"
 )
 
-func NewPinger(timeout int) Pinger {
+func NewPinger(timeout int, readNumTries int) Pinger {
 	return &Ping{
-		timeout: timeout,
+		timeout:      timeout,
+		readNumTries: readNumTries,
 	}
 }
 
@@ -61,11 +62,13 @@ func (p *Ping) sendPing(ipBytes []byte, e chan<- error) {
 
 func (p *Ping) readPing(srcIP string, e chan<- error, d chan<- bool) {
 	resp := make([]byte, 0)
+	tries := 0
 
-	for {
+	for tries <= p.readNumTries {
 		tmp := make([]byte, 512)
 
-		if err := p.conn.SetReadDeadline(time.Now().Add(time.Duration(p.timeout) * time.Second)); err != nil {
+		if err := p.conn.SetReadDeadline(time.Now().
+			Add(time.Duration(p.timeout) * time.Second)); err != nil {
 			e <- fmt.Errorf("error: set read deadline: %w", err)
 
 			return
@@ -73,9 +76,15 @@ func (p *Ping) readPing(srcIP string, e chan<- error, d chan<- bool) {
 
 		n, addr, err := p.conn.ReadFrom(tmp)
 		if err != nil {
-			e <- fmt.Errorf("error: ping: %w", err)
+			if tries+1 > p.readNumTries {
+				e <- fmt.Errorf("error: ping: %w", err)
 
-			return
+				return
+			}
+
+			tries++
+
+			continue
 		}
 
 		resp = append(resp, tmp[:n]...)
@@ -92,11 +101,11 @@ func (p *Ping) readPing(srcIP string, e chan<- error, d chan<- bool) {
 			ok, err := p.isEchoReply(resp)
 			if err != nil {
 				e <- err
-
-				return
+			} else {
+				d <- ok
 			}
 
-			d <- ok
+			return
 		}
 	}
 }

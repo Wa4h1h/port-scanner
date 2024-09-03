@@ -23,7 +23,7 @@ func NewScanExecutor(c *Config) ScanExecutor {
 		s.Cfg = &DefaultConfig
 	}
 
-	s.Pg = ping.NewPinger(s.Cfg.Timeout)
+	s.Pg = ping.NewPinger(s.Cfg.Timeout, PingTries)
 
 	return s
 }
@@ -140,7 +140,6 @@ func (s *Scanner) SynScan(host, port string) ([]*ScanResult, error) {
 func (s *Scanner) RangeScan(host string,
 	ports []string,
 ) ([]*ScanResult, error) {
-	fmt.Println(ports)
 	return nil, nil
 }
 

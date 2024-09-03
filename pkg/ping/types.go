@@ -10,6 +10,7 @@ type Pinger interface {
 }
 
 type Ping struct {
-	timeout int
-	conn    *icmp.PacketConn
+	timeout      int
+	readNumTries int
+	conn         *icmp.PacketConn
 }
