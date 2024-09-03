@@ -15,11 +15,11 @@ type SweepScanResult struct {
 }
 
 type Config struct {
+	Timeout int
+	CScan   int
 	TCP     bool
 	UDP     bool
 	SYN     bool
-	Timeout int
-	CScan   int
 }
 
 type Scanner struct {

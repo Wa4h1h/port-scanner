@@ -11,14 +11,15 @@ import (
 )
 
 type settings struct {
-	ports   string
-	hosts   string
-	timeout int
-	cscan   int
-	tcp     bool
-	udp     bool
-	vanilla bool
-	syn     bool
+	ports      string
+	hosts      string
+	timeout    int
+	cscan      int
+	tcp        bool
+	udp        bool
+	vanilla    bool
+	syn        bool
+	privileged bool
 }
 
 type Cli struct {
@@ -43,6 +44,7 @@ func (c *Cli) registerFlags() {
 	c.flags.BoolVar(&c.s.udp, "U", UDP, "run udp scan")
 	c.flags.IntVar(&c.s.timeout, "tS", DefaultTimeout, "port scan timeout in seconds")
 	c.flags.IntVar(&c.s.cscan, "cS", DefaultCScan, "number of concurrent port scans")
+	c.flags.BoolVar(&c.s.privileged, "pv", false, "set pv(privileged) to true using ping with icmp instead of udp")
 }
 
 func (c *Cli) parse(args []string) error {
@@ -77,7 +79,7 @@ func (c *Cli) Run(args []string) error {
 		Timeout: c.s.timeout,
 		CScan:   c.s.cscan,
 	}
-	s := scanner.NewScanExecutor(&cfg)
+	s := scanner.NewScanExecutor(&cfg, c.s.privileged)
 	hosts := strings.Split(c.s.hosts, ",")
 	ports := strings.Split(c.s.ports, ",")
 

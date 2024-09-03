@@ -14,10 +14,14 @@ import (
 	"golang.org/x/net/icmp"
 )
 
-func NewPinger(timeout int, readNumTries int) Pinger {
+func NewPinger(timeout int,
+	readNumTries int,
+	privileged bool,
+) Pinger {
 	return &Ping{
 		timeout:      timeout,
 		readNumTries: readNumTries,
+		privileged:   privileged,
 	}
 }
 
@@ -124,7 +128,13 @@ func (p *Ping) Ping(host string) (bool, error) {
 		return false, err
 	}
 
-	p.conn, err = icmp.ListenPacket("udp4", "0.0.0.0")
+	switch {
+	case p.privileged:
+		p.conn, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
+	default:
+		p.conn, err = icmp.ListenPacket("udp4", "0.0.0.0")
+	}
+
 	if err != nil {
 		return false, fmt.Errorf("error: create socket: %w", err)
 	}

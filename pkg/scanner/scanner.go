@@ -14,7 +14,7 @@ import (
 // make sure we conform to ScanExecutor.
 var _ ScanExecutor = &Scanner{}
 
-func NewScanExecutor(c *Config) ScanExecutor {
+func NewScanExecutor(c *Config, privileged bool) ScanExecutor {
 	s := new(Scanner)
 
 	if c != nil {
@@ -23,7 +23,7 @@ func NewScanExecutor(c *Config) ScanExecutor {
 		s.Cfg = &DefaultConfig
 	}
 
-	s.Pg = ping.NewPinger(s.Cfg.Timeout, PingTries)
+	s.Pg = ping.NewPinger(s.Cfg.Timeout, PingTries, privileged)
 
 	return s
 }

@@ -10,7 +10,8 @@ type Pinger interface {
 }
 
 type Ping struct {
+	conn         *icmp.PacketConn
 	timeout      int
 	readNumTries int
-	conn         *icmp.PacketConn
+	privileged   bool
 }
