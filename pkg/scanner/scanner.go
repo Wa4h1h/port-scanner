@@ -43,7 +43,9 @@ func (s *Scanner) getIP(host string) (string, error) {
 		return "", err
 	}
 
-	_, err = s.Pg.Ping(ip)
+	var ok bool
+
+	ok, err = s.Pg.Ping(ip)
 	if err != nil {
 		if strings.Contains(err.Error(), "sendto: no route to host") {
 			return "", fmt.Errorf("%s %w", host, ErrHostUnavailable)
@@ -52,7 +54,11 @@ func (s *Scanner) getIP(host string) (string, error) {
 		return "", err
 	}
 
-	return ip, err
+	if !ok {
+		return "", ErrICMPResponseDontMatchEchoReply
+	}
+
+	return ip, nil
 }
 
 type scanResultError struct {

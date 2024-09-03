@@ -26,6 +26,7 @@ func (p *Ping) sendPing(ipBytes []byte, e chan<- error) {
 		err error
 		b   []byte
 	)
+
 	err = p.conn.SetWriteDeadline(time.Now().Add(time.Duration(p.timeout) * time.Second))
 	if err != nil {
 		e <- fmt.Errorf("error: set ping write timeout: %w", err)
@@ -34,7 +35,8 @@ func (p *Ping) sendPing(ipBytes []byte, e chan<- error) {
 	}
 
 	m := icmp.Message{
-		Type: ipv4.ICMPTypeEcho, Code: 0,
+		Type: ipv4.ICMPTypeEcho,
+		Code: 0,
 		Body: &icmp.Echo{
 			ID:   os.Getpid() & 0xffff,
 			Seq:  33434,
