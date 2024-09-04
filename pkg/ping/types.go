@@ -2,7 +2,7 @@ package ping
 
 import "golang.org/x/net/icmp"
 
-// make sure we conform to Pinger
+// make sure we conform to Pinger.
 var _ Pinger = &Ping{}
 
 type Pinger interface {

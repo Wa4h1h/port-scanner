@@ -10,10 +10,10 @@ func IPStringToBytes(ip string) ([]byte, error) {
 	ipStr := strings.Split(ip, ".")
 
 	if len(ipStr) != 4 {
-		return nil, ErrUnvalidIP
+		return nil, ErrInvalidIP
 	}
 
-	ipBytes := make([]byte, 0)
+	ipBytes := make([]byte, 0, 4)
 
 	for _, octet := range ipStr {
 		val, err := strconv.ParseUint(octet, 10, 64)

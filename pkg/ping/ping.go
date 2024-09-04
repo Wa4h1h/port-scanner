@@ -31,13 +31,6 @@ func (p *Ping) sendPing(ipBytes []byte, e chan<- error) {
 		b   []byte
 	)
 
-	err = p.conn.SetWriteDeadline(time.Now().Add(time.Duration(p.timeout) * time.Second))
-	if err != nil {
-		e <- fmt.Errorf("error: set ping write timeout: %w", err)
-
-		return
-	}
-
 	m := icmp.Message{
 		Type: ipv4.ICMPTypeEcho,
 		Code: 0,
@@ -51,6 +44,13 @@ func (p *Ping) sendPing(ipBytes []byte, e chan<- error) {
 	b, err = m.Marshal(nil)
 	if err != nil {
 		e <- fmt.Errorf("error: marshal ICMP echo: %w", err)
+
+		return
+	}
+
+	err = p.conn.SetWriteDeadline(time.Now().Add(time.Duration(p.timeout) * time.Second))
+	if err != nil {
+		e <- fmt.Errorf("error: set ping write timeout: %w", err)
 
 		return
 	}
@@ -134,6 +134,8 @@ func (p *Ping) Ping(host string) (bool, error) {
 	default:
 		p.conn, err = icmp.ListenPacket("udp4", "0.0.0.0")
 	}
+
+	defer p.conn.Close()
 
 	if err != nil {
 		return false, fmt.Errorf("error: create socket: %w", err)
