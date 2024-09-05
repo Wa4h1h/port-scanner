@@ -2,10 +2,18 @@ package scanner
 
 import "github.com/Wa4h1h/port-scanner/pkg/ping"
 
+type State string
+
+const (
+	Open     State = "open"
+	Filtered State = "filtered"
+	Closed   State = "closed"
+)
+
 type ScanResult struct {
 	Service string
-	State   string
-	Port    uint16
+	Port    string
+	State   State
 }
 
 type SweepScanResult struct {
@@ -17,6 +25,7 @@ type SweepScanResult struct {
 type Config struct {
 	Timeout int
 	CScan   int
+	Retries int
 	TCP     bool
 	UDP     bool
 	SYN     bool
@@ -33,6 +42,7 @@ var DefaultConfig = Config{
 	SYN:     false,
 	Timeout: DefaultTimeout,
 	CScan:   DefaultCScan,
+	Retries: DefaultRetries,
 }
 
 type ScanExecutor interface {

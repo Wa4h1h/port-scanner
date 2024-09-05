@@ -1,10 +1,13 @@
 package scanner
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Wa4h1h/port-scanner/pkg/dns"
 
@@ -33,12 +36,48 @@ func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
 }
 
 func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
-	return nil, nil
+	descriptivePort := fmt.Sprintf("%s/tcp", port)
+
+	for i := 0; i < s.Cfg.Retries; {
+		conn, err := net.DialTimeout("tcp",
+			fmt.Sprintf("%s:%s", ip, port),
+			time.Duration(s.Cfg.Retries)*time.Second)
+		if err != nil {
+			if strings.Contains(err.Error(), "connect: connection refused") {
+				return &ScanResult{
+					State: Closed,
+					Port:  descriptivePort,
+				}, nil
+			}
+
+			var nErr net.Error
+			if errors.As(err, &nErr) && nErr.Timeout() {
+				i++
+				continue
+			}
+		} else {
+			conn.Close()
+
+			return &ScanResult{
+				State: Open,
+				Port:  descriptivePort,
+			}, nil
+		}
+	}
+
+	return &ScanResult{
+		State: Filtered,
+		Port:  descriptivePort,
+	}, nil
 }
 
 // getIP resolves host and ping it
 func (s *Scanner) getIP(host string) (string, error) {
-	ip, err := dns.HostToIP(host)
+	ctx, cancle := context.WithTimeout(context.Background(),
+		time.Duration(s.Cfg.Timeout)*time.Second)
+	defer cancle()
+
+	ip, err := dns.HostToIP(ctx, host)
 	if err != nil {
 		return "", err
 	}
@@ -75,7 +114,7 @@ func (s *Scanner) Scan(host, port string) ([]*ScanResult, error) {
 	)
 
 	resErrChan := make(chan *scanResultError, NumberOfScans)
-	results := make([]*ScanResult, NumberOfScans)
+	results := make([]*ScanResult, 0, NumberOfScans)
 
 	ip, err = s.getIP(host)
 	if err != nil {

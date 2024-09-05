@@ -13,10 +13,10 @@ func TestIPStringToBytes(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
+		err    error
 		name   string
 		input  string
 		output []byte
-		err    error
 	}{
 		{
 			name:   "GivenIPStringToBytes_WhenReturnsErrInvalidIP_returnErrInvalidIP",
@@ -26,7 +26,7 @@ func TestIPStringToBytes(t *testing.T) {
 		},
 		{
 			name:   "GivenIPStringToBytes_WhenReturnsErr_returnErr",
-			input:  "1.1.asfd.1",
+			input:  "1.1.invalid.1",
 			output: nil,
 			err:    errors.New("error: convert str to uint"),
 		},

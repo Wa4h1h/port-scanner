@@ -1,6 +1,7 @@
 package dns
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ func TestHostToIP(t *testing.T) {
 		t.Run(row.name, func(t *testing.T) {
 			t.Parallel()
 
-			ip, err := HostToIP(row.input)
+			ip, err := HostToIP(context.Background(), row.input)
 
 			if row.err != nil {
 				require.NotNil(t, err)

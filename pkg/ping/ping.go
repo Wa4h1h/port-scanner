@@ -1,10 +1,10 @@
 package ping
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/Wa4h1h/port-scanner/pkg/dns"
@@ -66,7 +66,7 @@ func (p *Ping) sendPing(ipBytes []byte, e chan<- error) {
 	}
 }
 
-func (p *Ping) readPing(srcIP string, e chan<- error, d chan<- bool) {
+func (p *Ping) readPing(e chan<- error, d chan<- bool) {
 	resp := make([]byte, 0)
 	tries := 0
 
@@ -80,7 +80,7 @@ func (p *Ping) readPing(srcIP string, e chan<- error, d chan<- bool) {
 			return
 		}
 
-		n, addr, err := p.conn.ReadFrom(tmp)
+		n, _, err := p.conn.ReadFrom(tmp)
 		if err != nil {
 			if tries+1 > p.readNumTries {
 				e <- fmt.Errorf("error: ping: %w", err)
@@ -94,14 +94,6 @@ func (p *Ping) readPing(srcIP string, e chan<- error, d chan<- bool) {
 		}
 
 		resp = append(resp, tmp[:n]...)
-
-		srcAddr := strings.Split(addr.String(), ":")
-
-		if srcAddr[0] != srcIP {
-			e <- ErrWrongSender
-
-			return
-		}
 
 		if (n == 0 || n < 512) && n > 4 {
 			ok, err := p.isEchoReply(resp)
@@ -123,7 +115,10 @@ func (p *Ping) Ping(host string) (bool, error) {
 		ip      string
 	)
 
-	ip, err = dns.HostToIP(host)
+	ctx, cancle := context.WithTimeout(context.Background(), time.Duration(p.timeout)*time.Second)
+	defer cancle()
+
+	ip, err = dns.HostToIP(ctx, host)
 	if err != nil {
 		return false, err
 	}
@@ -151,7 +146,7 @@ func (p *Ping) Ping(host string) (bool, error) {
 
 	go p.sendPing(ipBytes, errChan)
 
-	go p.readPing(ip, errChan, done)
+	go p.readPing(errChan, done)
 
 	select {
 	case err = <-errChan:

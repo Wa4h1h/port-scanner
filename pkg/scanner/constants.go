@@ -5,4 +5,5 @@ const (
 	DefaultCScan   int = 3
 	NumberOfScans  int = 2
 	PingTries      int = 3
+	DefaultRetries int = 3
 )

@@ -15,6 +15,7 @@ type settings struct {
 	hosts      string
 	timeout    int
 	cscan      int
+	retries    int
 	tcp        bool
 	udp        bool
 	vanilla    bool
@@ -46,6 +47,8 @@ func (c *Cli) registerFlags() {
 	c.flags.IntVar(&c.s.cscan, "cS", DefaultCScan, "number of concurrent port scans")
 	c.flags.BoolVar(&c.s.privileged, "pv", false,
 		"set pv(privileged) to true using ping with icmp instead of udp")
+	c.flags.IntVar(&c.s.retries, "sr", scanner.DefaultRetries,
+		"number of scan retires before the scan is considered filtered")
 }
 
 func (c *Cli) parse(args []string) error {
@@ -79,6 +82,7 @@ func (c *Cli) Run(args []string) error {
 		SYN:     c.s.syn,
 		Timeout: c.s.timeout,
 		CScan:   c.s.cscan,
+		Retries: c.s.retries,
 	}
 	s := scanner.NewScanExecutor(&cfg, c.s.privileged)
 	hosts := strings.Split(c.s.hosts, ",")
@@ -170,6 +174,7 @@ func (c *Cli) Run(args []string) error {
 
 		}
 
+		fmt.Fprintln(os.Stdout, "PORT\t\tSTATE\t\tSERVICE")
 		for _, res := range scanResults {
 			c.printScanResults(res)
 		}
@@ -178,8 +183,12 @@ func (c *Cli) Run(args []string) error {
 	return nil
 }
 
-func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult) {
-}
+func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult) {}
 
 func (c *Cli) printScanResults(result *scanner.ScanResult) {
+	fmt.Fprintf(os.Stdout, "%s", result.Port)
+	printSpaces(result.Port)
+	fmt.Fprint(os.Stdout, result.State)
+	printSpaces(string(result.State))
+	fmt.Fprintf(os.Stdout, result.Service)
 }
