@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wa4h1h/port-scanner/pkg/scanner"
 )
@@ -87,6 +88,8 @@ func (c *Cli) Run(args []string) error {
 	s := scanner.NewScanExecutor(&cfg, c.s.privileged)
 	hosts := strings.Split(c.s.hosts, ",")
 	ports := strings.Split(c.s.ports, ",")
+
+	start := time.Now()
 
 	switch {
 	case len(hosts) > 1:
@@ -174,10 +177,12 @@ func (c *Cli) Run(args []string) error {
 
 		}
 
+		end := time.Now().Sub(start)
 		fmt.Fprintln(os.Stdout, "PORT\t\tSTATE\t\tSERVICE")
 		for _, res := range scanResults {
 			c.printScanResults(res)
 		}
+		fmt.Println(fmt.Sprintf("\ndone scanning %d host(s) in %.2fs", len(hosts), end.Seconds()))
 	}
 
 	return nil
@@ -190,5 +195,5 @@ func (c *Cli) printScanResults(result *scanner.ScanResult) {
 	printSpaces(result.Port)
 	fmt.Fprint(os.Stdout, result.State)
 	printSpaces(string(result.State))
-	fmt.Fprintf(os.Stdout, result.Service)
+	fmt.Fprintf(os.Stdout, "%s\n", result.Service)
 }

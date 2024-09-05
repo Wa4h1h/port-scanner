@@ -41,7 +41,7 @@ func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 	for i := 0; i < s.Cfg.Retries; {
 		conn, err := net.DialTimeout("tcp",
 			fmt.Sprintf("%s:%s", ip, port),
-			time.Duration(s.Cfg.Retries)*time.Second)
+			time.Duration(s.Cfg.Timeout)*time.Second)
 		if err != nil {
 			if strings.Contains(err.Error(), "connect: connection refused") {
 				return &ScanResult{
@@ -55,6 +55,8 @@ func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 				i++
 				continue
 			}
+
+			return nil, fmt.Errorf("error: connect to %s:%s: %w", ip, port, err)
 		} else {
 			conn.Close()
 
