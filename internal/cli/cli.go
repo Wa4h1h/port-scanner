@@ -178,10 +178,13 @@ func (c *Cli) Run(args []string) error {
 		}
 
 		end := time.Now().Sub(start)
+
 		fmt.Fprintln(os.Stdout, "PORT\t\tSTATE\t\tSERVICE")
+
 		for _, res := range scanResults {
 			c.printScanResults(res)
 		}
+
 		fmt.Println(fmt.Sprintf("\ndone scanning %d host(s) in %.2fs", len(hosts), end.Seconds()))
 	}
 

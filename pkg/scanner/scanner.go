@@ -53,6 +53,7 @@ func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 			var nErr net.Error
 			if errors.As(err, &nErr) && nErr.Timeout() {
 				i++
+
 				continue
 			}
 
