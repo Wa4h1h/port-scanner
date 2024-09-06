@@ -115,8 +115,9 @@ func (p *Ping) Ping(host string) (bool, error) {
 		ip      string
 	)
 
-	ctx, cancle := context.WithTimeout(context.Background(), time.Duration(p.timeout)*time.Second)
-	defer cancle()
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(p.timeout)*time.Second)
+	defer cancel()
 
 	ip, err = dns.HostToIP(ctx, host)
 	if err != nil {
