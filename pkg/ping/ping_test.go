@@ -10,17 +10,19 @@ import (
 )
 
 type pingOutput struct {
-	status bool
 	err    error
+	status bool
 }
 
 func TestPing_Ping(t *testing.T) {
+	t.Parallel()
+
 	p := NewPinger(1, 1, false)
 
 	testCases := []struct {
+		output pingOutput
 		name   string
 		input  string
-		output pingOutput
 	}{
 		{
 			name:  "GivenPing_WhenHostToIPReturnsErr_returnErr",
