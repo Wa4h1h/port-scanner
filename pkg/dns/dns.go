@@ -21,3 +21,16 @@ func HostToIP(ctx context.Context, host string) (string, error) {
 
 	return ips[randIndex].String(), nil
 }
+
+// IPToHost do reverse DNS of ip
+// If multiple Addresses are assigned to the ip, a random one is returned
+func IPToHost(ip string) (string, error) {
+	names, err := net.LookupAddr(ip)
+	if err != nil {
+		return "", fmt.Errorf("error: reverse lookup addr: %w", err)
+	}
+
+	randIndex := rand.IntN(len(names))
+
+	return names[randIndex], nil
+}

@@ -1,4 +1,4 @@
-package cli
+package scanner
 
 import (
 	"flag"
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wa4h1h/port-scanner/pkg/scanner"
+	"github.com/Wa4h1h/networki/pkg/scanner"
 )
 
 type settings struct {
@@ -47,7 +47,7 @@ func (c *Cli) registerFlags() {
 	c.flags.IntVar(&c.s.timeout, "tS", DefaultTimeout, "port scan timeout in seconds")
 	c.flags.IntVar(&c.s.cscan, "cS", DefaultCScan, "number of concurrent port scans")
 	c.flags.BoolVar(&c.s.privileged, "pv", false,
-		"set pv(privileged) to true using ping with icmp instead of udp")
+		"set pv(privileged) to true which allows using ping with raw socket type instead of dgram socket type")
 	c.flags.IntVar(&c.s.retries, "sr", scanner.DefaultRetries,
 		"number of scan retires before the scan is considered filtered")
 }
@@ -85,11 +85,17 @@ func (c *Cli) Run(args []string) error {
 		CScan:   c.s.cscan,
 		Retries: c.s.retries,
 	}
+
 	s := scanner.NewScanExecutor(&cfg, c.s.privileged)
+
 	hosts := strings.Split(c.s.hosts, ",")
 	ports := strings.Split(c.s.ports, ",")
 
 	start := time.Now()
+
+	header := "PORT\t\tSTATE\t\tSERVICE"
+	filteredPorts := 0
+	closedPorts := 0
 
 	switch {
 	case len(hosts) > 1:
@@ -179,10 +185,23 @@ func (c *Cli) Run(args []string) error {
 
 		end := time.Now().Sub(start)
 
-		fmt.Fprintln(os.Stdout, "PORT\t\tSTATE\t\tSERVICE")
+		fmt.Fprintln(os.Stdout, header)
 
 		for _, res := range scanResults {
-			c.printScanResults(res)
+			if res.State == scanner.Open {
+				c.printScanResults(res)
+
+				continue
+			}
+
+			switch res.State {
+			case scanner.Closed:
+				closedPorts++
+			case scanner.Filtered:
+				filteredPorts++
+			}
+
+			// write results to file
 		}
 
 		fmt.Println(fmt.Sprintf("\ndone scanning %d host(s) in %.2fs", len(hosts), end.Seconds()))

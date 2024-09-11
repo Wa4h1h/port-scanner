@@ -1,7 +1,7 @@
-package cli
+package scanner
 
 import (
-	"github.com/Wa4h1h/port-scanner/pkg/scanner"
+	"github.com/Wa4h1h/networki/pkg/scanner"
 )
 
 const (

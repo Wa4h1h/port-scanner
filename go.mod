@@ -1,4 +1,4 @@
-module github.com/Wa4h1h/port-scanner
+module github.com/Wa4h1h/networki
 
 go 1.22.5
 

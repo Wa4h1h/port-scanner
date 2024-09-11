@@ -9,24 +9,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wa4h1h/port-scanner/pkg/dns"
+	"github.com/Wa4h1h/networki/pkg/dns"
 
-	"github.com/Wa4h1h/port-scanner/pkg/ping"
+	"github.com/Wa4h1h/networki/pkg/ping"
 )
 
 // make sure we conform to ScanExecutor.
 var _ ScanExecutor = &Scanner{}
 
-func NewScanExecutor(c *Config, privileged bool) ScanExecutor {
+func NewScanExecutor(c *Config, privilegedPing bool) ScanExecutor {
 	s := new(Scanner)
 
-	if c != nil {
-		s.Cfg = c
-	} else {
-		s.Cfg = &DefaultConfig
-	}
+	s.Cfg = c
 
-	s.Pg = ping.NewPinger(s.Cfg.Timeout, PingTries, privileged)
+	p := ping.NewPinger(&ping.DefaultConfig,
+		ping.WithPrivileged(privilegedPing))
+
+	s.Pg = p
 
 	return s
 }
@@ -58,14 +57,14 @@ func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 			}
 
 			return nil, fmt.Errorf("error: connect to %s:%s: %w", ip, port, err)
-		} else {
-			conn.Close()
-
-			return &ScanResult{
-				State: Open,
-				Port:  descriptivePort,
-			}, nil
 		}
+
+		conn.Close()
+
+		return &ScanResult{
+			State: Open,
+			Port:  descriptivePort,
+		}, nil
 	}
 
 	return &ScanResult{

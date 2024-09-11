@@ -1,6 +1,6 @@
 package scanner
 
-import "github.com/Wa4h1h/port-scanner/pkg/ping"
+import "github.com/Wa4h1h/networki/pkg/ping"
 
 type State string
 
