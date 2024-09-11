@@ -9,4 +9,5 @@ const (
 	DefaultDelayRetry int  = 50
 	IncDelayRetry     int  = 15
 	MaxInt16          int  = 32767
+	PacketMaxSize     int  = 1500
 )

@@ -86,7 +86,7 @@ func (p *Ping) sendPacket(ipBytes []byte,
 }
 
 func (p *Ping) rcvPacket(done chan<- bool) error {
-	resp := make([]byte, 1500)
+	resp := make([]byte, PacketMaxSize)
 	tries := 0
 
 	for tries <= p.cfg.rcvTries {
@@ -103,9 +103,9 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 					done <- false
 
 					return nil
-				} else {
-					return fmt.Errorf("error: ping: %w", err)
 				}
+
+				return fmt.Errorf("error: ping: %w", err)
 			}
 
 			tries++
@@ -128,29 +128,31 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 			p.delayRetry()
 
 			continue
-		} else {
-			v, _ := p.awaitingSeqNums.Load(reply.ID)
-			vs := v.(visitSeq)
-			if !vs.visited {
-				vs.visited = true
-
-				done <- true
-
-				break
-			} else {
-				if tries >= p.cfg.rcvTries {
-					done <- false
-
-					return nil
-				}
-
-				tries++
-
-				p.delayRetry()
-
-				continue
-			}
 		}
+
+		v, _ := p.awaitingSeqNums.Load(reply.ID)
+		vs := v.(visitSeq)
+
+		if !vs.visited {
+			vs.visited = true
+
+			done <- true
+
+			break
+		}
+
+		if tries >= p.cfg.rcvTries {
+			done <- false
+
+			return nil
+		}
+
+		tries++
+
+		p.delayRetry()
+
+		continue
+
 	}
 
 	return nil
