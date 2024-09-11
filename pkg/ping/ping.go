@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"net"
 	"time"
@@ -268,8 +269,9 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 		}
 	}
 
-	s.PacketLoss = float64(s.NSent - s.NReceived/p.cfg.pingNum)
+	s.PacketLoss = float64((s.NSent - s.NReceived) / p.cfg.pingNum)
 	s.Up = s.NReceived > 0
+	s.Rtt = math.Floor(s.Rtt*100) / 100
 
 	var rdns string
 
