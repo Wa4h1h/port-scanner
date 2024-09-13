@@ -16,7 +16,7 @@ func IPStringToBytes(ip string) ([]byte, error) {
 	ipBytes := make([]byte, 0, 4)
 
 	for _, octet := range ipStr {
-		val, err := strconv.ParseUint(octet, 10, 64)
+		val, err := strconv.ParseUint(octet, 10, 8)
 		if err != nil {
 			return nil, fmt.Errorf("error: convert str to uint: %w", err)
 		}

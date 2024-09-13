@@ -15,30 +15,30 @@ type Pinger interface {
 }
 
 var DefaultConfig = Config{
-	timeout:    DefaultTimeout,
-	pingNum:    DefaultNumPings,
-	privileged: Privileged,
-	rcvTries:   DefaultRcvTries,
-	cping:      DefaultCPing,
-	delayRetry: DefaultDelayRetry,
+	Timeout:    DefaultTimeout,
+	PingNum:    DefaultNumPings,
+	Privileged: Privileged,
+	RcvTries:   DefaultRcvTries,
+	Cping:      DefaultCPing,
+	DelayRetry: DefaultDelayRetry,
 }
 
 type Config struct {
-	// timeout socket read/write timeout
-	timeout int
-	// rcvTries is the number of time to read before the read op
+	// Timeout socket read/write timeout
+	Timeout int
+	// RcvTries is the number of time to read before the read op
 	// is considered as a failed read
-	rcvTries int
-	// pingNum is the number of ICMP echo request to send
-	pingNum int
-	// cping number of concurrent ping
-	cping int
-	// privileged is set to true, then raw socket will be used as the underlying socket type
+	RcvTries int
+	// PingNum is the number of ICMP echo request to send
+	PingNum int
+	// Cping number of concurrent ping
+	Cping int
+	// Privileged is set to true, then raw socket will be used as the underlying socket type
 	// otherwise, then dgram socket will be used as the underlying socket type
-	privileged bool
-	// delayRetry tells how much time(milliseconds) to wait before
+	Privileged bool
+	// DelayRetry tells how much time(milliseconds) to wait before
 	// retrying a read icmp message op
-	delayRetry int
+	DelayRetry int
 }
 
 type visitSeq struct {

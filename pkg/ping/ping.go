@@ -30,19 +30,19 @@ func NewPinger(c *Config, options ...func(ping *Ping)) Pinger {
 
 func WithPrivileged(privileged bool) func(*Ping) {
 	return func(ping *Ping) {
-		ping.cfg.privileged = privileged
+		ping.cfg.Privileged = privileged
 	}
 }
 
 func WithNumPings(numPings int) func(*Ping) {
 	return func(ping *Ping) {
-		ping.cfg.pingNum = numPings
+		ping.cfg.PingNum = numPings
 	}
 }
 
 func (p *Ping) delayRetry() {
-	time.Sleep(time.Duration(p.cfg.delayRetry) * time.Millisecond)
-	p.cfg.delayRetry += IncDelayRetry
+	time.Sleep(time.Duration(p.cfg.DelayRetry) * time.Millisecond)
+	p.cfg.DelayRetry += IncDelayRetry
 }
 
 func (p *Ping) sendPacket(ipBytes []byte,
@@ -69,7 +69,7 @@ func (p *Ping) sendPacket(ipBytes []byte,
 		return fmt.Errorf("error: marshal ICMP echo: %w", err)
 	}
 
-	err = p.conn.SetWriteDeadline(time.Now().Add(time.Duration(p.cfg.timeout) * time.Second))
+	err = p.conn.SetWriteDeadline(time.Now().Add(time.Duration(p.cfg.Timeout) * time.Second))
 	if err != nil {
 		return fmt.Errorf("error: set ping write timeout: %w", err)
 	}
@@ -89,15 +89,15 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 	resp := make([]byte, PacketMaxSize)
 	tries := 0
 
-	for tries <= p.cfg.rcvTries {
+	for tries <= p.cfg.RcvTries {
 		if err := p.conn.SetReadDeadline(time.Now().
-			Add(time.Duration(p.cfg.timeout) * time.Second)); err != nil {
+			Add(time.Duration(p.cfg.Timeout) * time.Second)); err != nil {
 			return fmt.Errorf("error: set read deadline: %w", err)
 		}
 
 		n, _, err := p.conn.ReadFrom(resp)
 		if err != nil {
-			if tries >= p.cfg.rcvTries {
+			if tries >= p.cfg.RcvTries {
 				var netErr *net.OpError
 				if errors.As(err, &netErr) && netErr.Timeout() {
 					done <- false
@@ -117,9 +117,9 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 
 		var reply *icmp.Echo
 
-		reply, err = p.isEchoReply(resp[:n])
+		reply, err = p.parseEchoReply(resp[:n])
 		if err != nil {
-			if tries >= p.cfg.rcvTries {
+			if tries >= p.cfg.RcvTries {
 				return err
 			}
 
@@ -141,7 +141,7 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 			break
 		}
 
-		if tries >= p.cfg.rcvTries {
+		if tries >= p.cfg.RcvTries {
 			done <- false
 
 			return nil
@@ -201,7 +201,7 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(p.cfg.timeout)*time.Second)
+		time.Duration(p.cfg.Timeout)*time.Second)
 	defer cancel()
 
 	ip, err = dns.HostToIP(ctx, host)
@@ -210,7 +210,7 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 	}
 
 	switch {
-	case p.cfg.privileged:
+	case p.cfg.Privileged:
 		p.conn, err = icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 	default:
 		p.conn, err = icmp.ListenPacket("udp4", "0.0.0.0")
@@ -222,12 +222,12 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 
 	defer p.conn.Close()
 
-	limit := make(chan struct{}, p.cfg.cping)
+	limit := make(chan struct{}, p.cfg.Cping)
 	errChan := make(chan error)
 	tmp := make(chan *tmpResult)
 
 	go func() {
-		for range p.cfg.pingNum {
+		for range p.cfg.PingNum {
 			limit <- struct{}{}
 
 			go func() {
@@ -257,7 +257,7 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 		}
 	}()
 
-	for range p.cfg.pingNum {
+	for range p.cfg.PingNum {
 		select {
 		case err = <-errChan:
 			return nil, err
@@ -271,32 +271,28 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 		}
 	}
 
-	s.PacketLoss = float64((s.NSent - s.NReceived) / p.cfg.pingNum)
+	s.PacketLoss = float64((s.NSent - s.NReceived) / p.cfg.PingNum)
 	s.Up = s.NReceived > 0
 	s.Rtt = math.Floor(s.Rtt*100) / 100
 
-	var rdns string
-
-	rdns, err = dns.IPToHost(ip)
+	s.RDns, err = dns.IPToHost(ip)
 	if err != nil {
 		return nil, err
 	}
 
-	s.RDns = rdns
-
 	return s, nil
 }
 
-func (p *Ping) isEchoReply(bytes []byte) (*icmp.Echo, error) {
+func (p *Ping) parseEchoReply(bytes []byte) (*icmp.Echo, error) {
 	m, err := icmp.ParseMessage(1, bytes)
 	if err != nil {
 		return nil, fmt.Errorf("error: parse icmp message: %w", err)
 	}
 
-	b, ok := m.Body.(*icmp.Echo)
+	echo, ok := m.Body.(*icmp.Echo)
 	if !ok {
-		return nil, fmt.Errorf("error: body is not icmp echo")
+		return nil, fmt.Errorf("error: body is not icmp echo reply")
 	}
 
-	return b, nil
+	return echo, nil
 }
