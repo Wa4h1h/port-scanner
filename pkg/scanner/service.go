@@ -25,7 +25,12 @@ func init() {
 	for _, row := range recs[1:] {
 		port := row[1]
 		proto := row[2]
-		services[fmt.Sprintf("%s/%s", port, proto)] = row[0]
+		key := fmt.Sprintf("%s/%s", port, proto)
+		_, ok := services[key]
+
+		if !ok {
+			services[key] = row[0]
+		}
 	}
 }
 
