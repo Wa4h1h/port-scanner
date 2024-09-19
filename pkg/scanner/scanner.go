@@ -33,6 +33,7 @@ func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
 
 func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 	descriptivePort := fmt.Sprintf("%s/tcp", port)
+	service := PortToService(descriptivePort)
 
 	for i := 0; i < s.Cfg.BackoffLimit; {
 		conn, err := net.DialTimeout("tcp",
@@ -41,8 +42,9 @@ func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 		if err != nil {
 			if strings.Contains(err.Error(), "connect: connection refused") {
 				return &ScanResult{
-					State: Closed,
-					Port:  descriptivePort,
+					State:   Closed,
+					Port:    descriptivePort,
+					Service: service,
 				}, nil
 			}
 
@@ -59,14 +61,16 @@ func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 		conn.Close()
 
 		return &ScanResult{
-			State: Open,
-			Port:  descriptivePort,
+			State:   Open,
+			Port:    descriptivePort,
+			Service: service,
 		}, nil
 	}
 
 	return &ScanResult{
-		State: Filtered,
-		Port:  descriptivePort,
+		State:   Filtered,
+		Port:    descriptivePort,
+		Service: service,
 	}, nil
 }
 
