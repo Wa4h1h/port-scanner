@@ -15,20 +15,20 @@ type Pinger interface {
 }
 
 var DefaultConfig = Config{
-	Timeout:    DefaultTimeout,
-	PingNum:    DefaultNumPings,
-	Privileged: Privileged,
-	RcvTries:   DefaultRcvTries,
-	Cping:      DefaultCPing,
-	DelayRetry: DefaultDelayRetry,
+	Timeout:      DefaultTimeout,
+	PingNum:      DefaultNumPings,
+	Privileged:   Privileged,
+	BackoffLimit: DefaultBackoffLimit,
+	Cping:        DefaultCPing,
+	DelayRetry:   DefaultDelayRetry,
 }
 
 type Config struct {
 	// Timeout socket read/write timeout
 	Timeout int
-	// RcvTries is the number of time to read before the read op
+	// DefaultBackoffLimit is the number of time to read before the read op
 	// is considered as a failed read
-	RcvTries int
+	BackoffLimit int
 	// PingNum is the number of ICMP echo request to send
 	PingNum int
 	// Cping number of concurrent ping
@@ -58,6 +58,8 @@ type tmpResult struct {
 }
 
 type Stats struct {
+	// IP represent the ip of the host, that it is being pinged
+	IP string
 	// reverse dns record
 	RDns string
 	// avg rtt

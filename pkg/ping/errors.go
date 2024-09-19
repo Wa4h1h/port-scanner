@@ -2,6 +2,4 @@ package ping
 
 import "errors"
 
-var (
-	ErrInvalidIP = errors.New("ip is not ipv4")
-)
+var ErrInvalidIP = errors.New("ip is not ipv4")

@@ -2,6 +2,9 @@ package scanner
 
 import "github.com/Wa4h1h/networki/pkg/ping"
 
+// make sure we conform to ScanExecutor.
+var _ ScanExecutor = &Scanner{}
+
 type State string
 
 const (
@@ -23,12 +26,12 @@ type SweepScanResult struct {
 }
 
 type Config struct {
-	Timeout int
-	CScan   int
-	Retries int
-	TCP     bool
-	UDP     bool
-	SYN     bool
+	Timeout      int
+	CScan        int
+	BackoffLimit int
+	TCP          bool
+	UDP          bool
+	SYN          bool
 }
 
 type Scanner struct {
@@ -36,19 +39,10 @@ type Scanner struct {
 	Pg  ping.Pinger
 }
 
-var DefaultConfig = Config{
-	TCP:     true,
-	UDP:     false,
-	SYN:     false,
-	Timeout: DefaultTimeout,
-	CScan:   DefaultCScan,
-	Retries: DefaultRetries,
-}
-
 type ScanExecutor interface {
-	Scan(host string, port string) ([]*ScanResult, error)
-	SynScan(host string, port string) ([]*ScanResult, error)
-	RangeScan(host string, ports []string) ([]*ScanResult, error)
-	VanillaScan(host string) ([]*ScanResult, error)
+	Scan(host string, port string) (*ping.Stats, []*ScanResult, error)
+	SynScan(host string, port string) (*ping.Stats, []*ScanResult, error)
+	RangeScan(host string, ports []string) (*ping.Stats, []*ScanResult, error)
+	VanillaScan(host string) (*ping.Stats, []*ScanResult, error)
 	SweepScan(hosts []string, port string) ([]*SweepScanResult, error)
 }

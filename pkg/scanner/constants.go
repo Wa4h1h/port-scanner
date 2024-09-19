@@ -1,9 +1,8 @@
 package scanner
 
 const (
-	DefaultTimeout int = 3
-	DefaultCScan   int = 3
-	NumberOfScans  int = 2
-	PingTries      int = 3
-	DefaultRetries int = 3
+	DefaultTimeout      int = 1
+	DefaultCScan        int = 3
+	NumberOfScans       int = 2
+	DefaultBackoffLimit int = 3
 )

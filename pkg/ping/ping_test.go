@@ -10,5 +10,4 @@ type pingOutput struct {
 }
 
 func TestPing_Ping(t *testing.T) {
-
 }

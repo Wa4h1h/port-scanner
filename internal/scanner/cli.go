@@ -8,20 +8,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wa4h1h/networki/pkg/ping"
+
 	"github.com/Wa4h1h/networki/pkg/scanner"
 )
 
 type settings struct {
-	ports      string
-	hosts      string
-	timeout    int
-	cscan      int
-	retries    int
-	tcp        bool
-	udp        bool
-	vanilla    bool
-	syn        bool
-	privileged bool
+	ports        string
+	hosts        string
+	timeout      int
+	cscan        int
+	backOffLimit int
+	tcp          bool
+	udp          bool
+	vanilla      bool
+	syn          bool
+	privileged   bool
 }
 
 type Cli struct {
@@ -48,7 +50,7 @@ func (c *Cli) registerFlags() {
 	c.flags.IntVar(&c.s.cscan, "cS", DefaultCScan, "number of concurrent port scans")
 	c.flags.BoolVar(&c.s.privileged, "pv", false,
 		"set pv(privileged) to true which allows using ping with raw socket type instead of dgram socket type")
-	c.flags.IntVar(&c.s.retries, "sr", scanner.DefaultRetries,
+	c.flags.IntVar(&c.s.backOffLimit, "sr", scanner.DefaultBackoffLimit,
 		"number of scan retires before the scan is considered filtered")
 }
 
@@ -78,12 +80,12 @@ func (c *Cli) Run(args []string) error {
 	}
 
 	cfg := scanner.Config{
-		TCP:     c.s.tcp,
-		UDP:     c.s.udp,
-		SYN:     c.s.syn,
-		Timeout: c.s.timeout,
-		CScan:   c.s.cscan,
-		Retries: c.s.retries,
+		TCP:          c.s.tcp,
+		UDP:          c.s.udp,
+		SYN:          c.s.syn,
+		Timeout:      c.s.timeout,
+		CScan:        c.s.cscan,
+		BackoffLimit: c.s.backOffLimit,
 	}
 
 	s := scanner.NewScanExecutor(&cfg, c.s.privileged)
@@ -94,8 +96,6 @@ func (c *Cli) Run(args []string) error {
 	start := time.Now()
 
 	header := "PORT\t\tSTATE\t\tSERVICE"
-	filteredPorts := 0
-	closedPorts := 0
 
 	switch {
 	case len(hosts) > 1:
@@ -111,9 +111,13 @@ func (c *Cli) Run(args []string) error {
 		}
 	case len(hosts) == 1:
 		port := ports[0]
+		host := hosts[0]
 		scanResults := make([]*scanner.ScanResult, 0)
 
-		var err error
+		var (
+			err       error
+			pingStats *ping.Stats = new(ping.Stats)
+		)
 
 		switch {
 		case len(ports) == 1:
@@ -146,7 +150,7 @@ func (c *Cli) Run(args []string) error {
 						rangePorts = append(rangePorts, fmt.Sprintf("%d", i))
 					}
 
-					scanResults, err = s.RangeScan(hosts[0], rangePorts)
+					pingStats, scanResults, err = s.RangeScan(host, rangePorts)
 					if err != nil {
 						return err
 					}
@@ -154,7 +158,7 @@ func (c *Cli) Run(args []string) error {
 					var tmp []*scanner.ScanResult
 
 					if cfg.SYN {
-						tmp, err = s.SynScan(hosts[0], port)
+						pingStats, tmp, err = s.SynScan(host, port)
 						if err != nil {
 							return err
 						}
@@ -162,7 +166,7 @@ func (c *Cli) Run(args []string) error {
 						scanResults = append(scanResults, tmp...)
 					}
 
-					tmp, err = s.Scan(hosts[0], port)
+					pingStats, tmp, err = s.Scan(host, port)
 					if err != nil {
 						return err
 					}
@@ -170,13 +174,13 @@ func (c *Cli) Run(args []string) error {
 					scanResults = append(scanResults, tmp...)
 				}
 			} else {
-				scanResults, err = s.VanillaScan(hosts[0])
+				pingStats, scanResults, err = s.VanillaScan(host)
 				if err != nil {
 					return err
 				}
 			}
 		case len(ports) > 1:
-			scanResults, err = s.RangeScan(hosts[0], ports)
+			pingStats, scanResults, err = s.RangeScan(host, ports)
 			if err != nil {
 				return err
 			}
@@ -185,26 +189,17 @@ func (c *Cli) Run(args []string) error {
 
 		end := time.Now().Sub(start)
 
+		fmt.Fprintf(os.Stdout, "Scanning %s(%s)\n", host, pingStats.IP)
+		fmt.Fprintf(os.Stdout, "%s is Up: %.2fs\n", pingStats.IP, pingStats.Rtt)
+		fmt.Fprintf(os.Stdout, "rDNS: %s\n", pingStats.RDns)
 		fmt.Fprintln(os.Stdout, header)
 
 		for _, res := range scanResults {
-			if res.State == scanner.Open {
-				c.printScanResults(res)
-
-				continue
-			}
-
-			switch res.State {
-			case scanner.Closed:
-				closedPorts++
-			case scanner.Filtered:
-				filteredPorts++
-			}
-
+			c.printScanResult(res)
 			// write results to file
 		}
 
-		fmt.Println(fmt.Sprintf("\ndone scanning %d host(s) in %.2fs", len(hosts), end.Seconds()))
+		fmt.Fprintf(os.Stdout, "\ndone scanning %d host(s) in %.2fs", len(hosts), end.Seconds())
 	}
 
 	return nil
@@ -212,7 +207,7 @@ func (c *Cli) Run(args []string) error {
 
 func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult) {}
 
-func (c *Cli) printScanResults(result *scanner.ScanResult) {
+func (c *Cli) printScanResult(result *scanner.ScanResult) {
 	fmt.Fprintf(os.Stdout, "%s", result.Port)
 	printSpaces(result.Port)
 	fmt.Fprint(os.Stdout, result.State)

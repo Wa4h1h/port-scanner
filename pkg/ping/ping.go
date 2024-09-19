@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/Wa4h1h/networki/pkg/dns"
@@ -89,7 +90,7 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 	resp := make([]byte, PacketMaxSize)
 	tries := 0
 
-	for tries <= p.cfg.RcvTries {
+	for tries <= p.cfg.BackoffLimit {
 		if err := p.conn.SetReadDeadline(time.Now().
 			Add(time.Duration(p.cfg.Timeout) * time.Second)); err != nil {
 			return fmt.Errorf("error: set read deadline: %w", err)
@@ -97,7 +98,7 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 
 		n, _, err := p.conn.ReadFrom(resp)
 		if err != nil {
-			if tries >= p.cfg.RcvTries {
+			if tries >= p.cfg.BackoffLimit {
 				var netErr *net.OpError
 				if errors.As(err, &netErr) && netErr.Timeout() {
 					done <- false
@@ -119,7 +120,7 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 
 		reply, err = p.parseEchoReply(resp[:n])
 		if err != nil {
-			if tries >= p.cfg.RcvTries {
+			if tries >= p.cfg.BackoffLimit {
 				return err
 			}
 
@@ -141,7 +142,7 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 			break
 		}
 
-		if tries >= p.cfg.RcvTries {
+		if tries >= p.cfg.BackoffLimit {
 			done <- false
 
 			return nil
@@ -274,10 +275,15 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 	s.PacketLoss = float64((s.NSent - s.NReceived) / p.cfg.PingNum)
 	s.Up = s.NReceived > 0
 	s.Rtt = math.Floor(s.Rtt*100) / 100
+	s.IP = ip
 
 	s.RDns, err = dns.IPToHost(ip)
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "no such host") {
+			return nil, err
+		}
+
+		s.RDns = ip
 	}
 
 	return s, nil
