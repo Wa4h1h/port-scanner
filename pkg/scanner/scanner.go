@@ -97,7 +97,8 @@ func (s *Scanner) getIP(host string) (*ping.Stats, string, error) {
 	}
 
 	if !pres.Up {
-		return nil, "", ErrICMPResponseDontMatchEchoReply
+		return nil, "", fmt.Errorf("error: ping %s(%s) failed: %w",
+			host, ip, ErrICMPResponseDontMatchEchoReply)
 	}
 
 	return pres, ip, nil

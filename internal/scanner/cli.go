@@ -95,8 +95,6 @@ func (c *Cli) Run(args []string) error {
 
 	start := time.Now()
 
-	header := "PORT\t\tSTATE\t\tSERVICE"
-
 	switch {
 	case len(hosts) > 1:
 		if len(ports) == 1 && ports[0] != "" {
@@ -116,7 +114,7 @@ func (c *Cli) Run(args []string) error {
 
 		var (
 			err       error
-			pingStats *ping.Stats = new(ping.Stats)
+			pingStats = new(ping.Stats)
 		)
 
 		switch {
@@ -189,14 +187,11 @@ func (c *Cli) Run(args []string) error {
 
 		end := time.Now().Sub(start)
 
-		fmt.Fprintf(os.Stdout, "Scanning %s(%s)\n", host, pingStats.IP)
-		fmt.Fprintf(os.Stdout, "%s is Up: %.2fs\n", pingStats.IP, pingStats.Rtt)
-		fmt.Fprintf(os.Stdout, "rDNS: %s\n", pingStats.RDns)
-		fmt.Fprintln(os.Stdout, header)
+		c.printPing(host, pingStats)
+		printHeader()
 
 		for _, res := range scanResults {
 			c.printScanResult(res)
-			// write results to file
 		}
 
 		fmt.Fprintf(os.Stdout, "\ndone scanning %d host(s) in %.2fs", len(hosts), end.Seconds())
@@ -205,7 +200,19 @@ func (c *Cli) Run(args []string) error {
 	return nil
 }
 
-func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult) {}
+func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult) {
+	for _, res := range results {
+		c.printPing(res.Host, res.PingStats)
+		printHeader()
+		c.printScanResult(&res.ScanResult)
+	}
+}
+
+func (c *Cli) printPing(host string, pingStats *ping.Stats) {
+	fmt.Fprintf(os.Stdout, "Scanning %s(%s)\n", host, pingStats.IP)
+	fmt.Fprintf(os.Stdout, "%s is Up: %.2fs\n", pingStats.IP, pingStats.Rtt)
+	fmt.Fprintf(os.Stdout, "rDNS: %s\n", pingStats.RDns)
+}
 
 func (c *Cli) printScanResult(result *scanner.ScanResult) {
 	fmt.Fprintf(os.Stdout, "%s", result.Port)

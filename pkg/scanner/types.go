@@ -20,8 +20,9 @@ type ScanResult struct {
 }
 
 type SweepScanResult struct {
-	Host string
-	IP   string
+	Host      string
+	IP        string
+	PingStats *ping.Stats
 	ScanResult
 }
 
