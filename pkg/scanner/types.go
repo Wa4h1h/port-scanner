@@ -1,6 +1,6 @@
 package scanner
 
-import "github.com/Wa4h1h/networki/pkg/ping"
+import "github.com/Wa4h1h/port-scanner/pkg/ping"
 
 // make sure we conform to ScanExecutor.
 var _ ScanExecutor = &Scanner{}

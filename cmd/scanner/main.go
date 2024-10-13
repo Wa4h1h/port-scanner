@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Wa4h1h/networki/internal/scanner"
+	"github.com/Wa4h1h/port-scanner/internal/scanner"
 )
 
 func main() {

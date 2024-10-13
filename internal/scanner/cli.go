@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wa4h1h/networki/pkg/ping"
+	"github.com/Wa4h1h/port-scanner/pkg/ping"
 
-	"github.com/Wa4h1h/networki/pkg/scanner"
+	"github.com/Wa4h1h/port-scanner/pkg/scanner"
 )
 
 type settings struct {
@@ -119,64 +119,66 @@ func (c *Cli) Run(args []string) error {
 
 		switch {
 		case len(ports) == 1:
-			if port != "" {
-				rangeCheck := strings.Contains(port, "-")
-				if rangeCheck {
-					var (
-						start int
-						end   int
-					)
+			if port == "" {
+				pingStats, scanResults, err = s.VanillaScan(host)
+				if err != nil {
+					return err
+				}
+			}
 
-					rangeStr := strings.Split(port, "-")
-					if len(rangeStr) != 2 {
-						return ErrRangeStrLength
-					}
+			rangeCheck := strings.Contains(port, "-")
 
-					rangePorts := make([]string, 0)
+			if rangeCheck {
+				var (
+					start int
+					end   int
+				)
 
-					start, err = strconv.Atoi(rangeStr[0])
-					if err != nil {
-						return err
-					}
+				rangeStr := strings.Split(port, "-")
+				if len(rangeStr) != 2 {
+					return ErrRangeStrLength
+				}
 
-					end, err = strconv.Atoi(rangeStr[1])
-					if err != nil {
-						return err
-					}
+				rangePorts := make([]string, 0)
 
-					for i := start; i <= end; i++ {
-						rangePorts = append(rangePorts, fmt.Sprintf("%d", i))
-					}
+				start, err = strconv.Atoi(rangeStr[0])
+				if err != nil {
+					return err
+				}
 
-					pingStats, scanResults, err = s.RangeScan(host, rangePorts)
-					if err != nil {
-						return err
-					}
-				} else {
-					var tmp []*scanner.ScanResult
+				end, err = strconv.Atoi(rangeStr[1])
+				if err != nil {
+					return err
+				}
 
-					if cfg.SYN {
-						pingStats, tmp, err = s.SynScan(host, port)
-						if err != nil {
-							return err
-						}
+				for i := start; i <= end; i++ {
+					rangePorts = append(rangePorts, fmt.Sprintf("%d", i))
+				}
 
-						scanResults = append(scanResults, tmp...)
-					}
+				pingStats, scanResults, err = s.RangeScan(host, rangePorts)
+				if err != nil {
+					return err
+				}
+			} else {
+				var tmp []*scanner.ScanResult
 
-					pingStats, tmp, err = s.Scan(host, port)
+				if cfg.SYN {
+					pingStats, tmp, err = s.SynScan(host, port)
 					if err != nil {
 						return err
 					}
 
 					scanResults = append(scanResults, tmp...)
 				}
-			} else {
-				pingStats, scanResults, err = s.VanillaScan(host)
+
+				pingStats, tmp, err = s.Scan(host, port)
 				if err != nil {
 					return err
 				}
+
+				scanResults = append(scanResults, tmp...)
 			}
+
 		case len(ports) > 1:
 			pingStats, scanResults, err = s.RangeScan(host, ports)
 			if err != nil {

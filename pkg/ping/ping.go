@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wa4h1h/networki/pkg/dns"
+	icmp2 "github.com/Wa4h1h/port-scanner/pkg/icmp"
+
+	"github.com/Wa4h1h/port-scanner/pkg/dns"
 
 	"golang.org/x/net/ipv4"
 
@@ -118,7 +120,7 @@ func (p *Ping) rcvPacket(done chan<- bool) error {
 
 		var reply *icmp.Echo
 
-		reply, err = p.parseEchoReply(resp[:n])
+		reply, err = icmp2.ParseEchoReply(resp[:n])
 		if err != nil {
 			if tries >= p.cfg.BackoffLimit {
 				return err
@@ -218,7 +220,7 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("error: create socket: %w", err)
+		return nil, fmt.Errorf("error: create listen icmp socket: %w", err)
 	}
 
 	defer p.conn.Close()
@@ -287,18 +289,4 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 	}
 
 	return s, nil
-}
-
-func (p *Ping) parseEchoReply(bytes []byte) (*icmp.Echo, error) {
-	m, err := icmp.ParseMessage(1, bytes)
-	if err != nil {
-		return nil, fmt.Errorf("error: parse icmp message: %w", err)
-	}
-
-	echo, ok := m.Body.(*icmp.Echo)
-	if !ok {
-		return nil, fmt.Errorf("error: body is not icmp echo reply")
-	}
-
-	return echo, nil
 }

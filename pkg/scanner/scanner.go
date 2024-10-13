@@ -9,9 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Wa4h1h/networki/pkg/dns"
+	icmp2 "github.com/Wa4h1h/port-scanner/pkg/icmp"
+	"golang.org/x/net/icmp"
 
-	"github.com/Wa4h1h/networki/pkg/ping"
+	"github.com/Wa4h1h/port-scanner/pkg/dns"
+
+	"github.com/Wa4h1h/port-scanner/pkg/ping"
 )
 
 func NewScanExecutor(c *Config, privilegedPing bool) ScanExecutor {
@@ -27,8 +30,66 @@ func NewScanExecutor(c *Config, privilegedPing bool) ScanExecutor {
 	return s
 }
 
+func (s *Scanner) listenForDstUnreachable(ip string) error {
+	conn, err := icmp.ListenPacket("udp4", "0.0.0.0")
+	if err != nil {
+		return fmt.Errorf("error: create listen for dst unreachable socket: %w", err)
+	}
+
+	defer conn.Close()
+
+	reply := make([]byte, 1500)
+
+	for {
+		n, addr, err := conn.ReadFrom(reply)
+		if err != nil {
+			return fmt.Errorf("error: rading icmp dst unreachable packet: %w", err)
+		}
+
+		if n > 0 {
+			if strings.Contains(addr.String(), ip) {
+				_, err := icmp2.ParseUnreachable(reply[:n])
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}
+		}
+	}
+}
+
 func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
-	return nil, nil
+	errChan := make(chan error)
+	scanRes := make(chan *ScanResult)
+
+	go func(e chan<- error) {
+		e <- s.listenForDstUnreachable(ip)
+	}(errChan)
+
+	conn, err := net.Dial("udp",
+		fmt.Sprintf("%s:%s", ip, port))
+	if err != nil {
+		return nil, fmt.Errorf("error: dial udp: %w", err)
+	}
+
+	go func() {
+		for i := 0; i < s.Cfg.BackoffLimit; {
+			_, err := conn.Write([]byte{0x0})
+			if err != nil {
+				i++
+
+				continue
+			}
+		}
+	}()
+
+	select {
+	case err = <-errChan:
+		return nil, err
+	case s := <-scanRes:
+		return s, nil
+	}
 }
 
 func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
