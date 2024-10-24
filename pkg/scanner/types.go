@@ -52,7 +52,8 @@ type Scanner struct {
 }
 
 type ScanExecutor interface {
-	Scan(host string, port string) (*ping.Stats, []*ScanResult, error)
+	PingHost(host string) (*ping.Stats, string, error)
+	Scan(host string, port string) ([]*ScanResult, error)
 	SynScan(host string, port string) (*ping.Stats, []*ScanResult, error)
 	RangeScan(host string, ports []string) (*ping.Stats, []*ScanResult, error)
 	VanillaScan(host string) (*ping.Stats, []*ScanResult, error)

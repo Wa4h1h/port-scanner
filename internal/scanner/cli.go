@@ -162,6 +162,11 @@ func (c *Cli) Run(args []string) error {
 			} else {
 				var tmp []*scanner.ScanResult
 
+				pingStats, host, err = s.PingHost(host)
+				if err != nil {
+					return err
+				}
+
 				if cfg.SYN {
 					pingStats, tmp, err = s.SynScan(host, port)
 					if err != nil {
@@ -171,7 +176,7 @@ func (c *Cli) Run(args []string) error {
 					scanResults = append(scanResults, tmp...)
 				}
 
-				pingStats, tmp, err = s.Scan(host, port)
+				tmp, err = s.Scan(host, port)
 				if err != nil {
 					return err
 				}

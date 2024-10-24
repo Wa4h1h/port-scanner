@@ -221,8 +221,8 @@ func (s *Scanner) tcpScan(ip, port string) (*ScanResult, error) {
 	}, nil
 }
 
-// getIP resolves host and ping it
-func (s *Scanner) getIP(host string) (*ping.Stats, string, error) {
+// PingHost resolves host and ping it
+func (s *Scanner) PingHost(host string) (*ping.Stats, string, error) {
 	ctx, cancle := context.WithTimeout(context.Background(),
 		time.Duration(s.Cfg.Timeout)*time.Second)
 	defer cancle()
@@ -232,9 +232,9 @@ func (s *Scanner) getIP(host string) (*ping.Stats, string, error) {
 		return nil, "", err
 	}
 
-	var pres *ping.Stats
+	var stats *ping.Stats
 
-	pres, err = s.Pg.Ping(ip)
+	stats, err = s.Pg.Ping(ip)
 	if err != nil {
 		if strings.Contains(err.Error(), "sendto: no route to host") {
 			return nil, "", fmt.Errorf("%s %w", host, ErrHostUnavailable)
@@ -243,12 +243,12 @@ func (s *Scanner) getIP(host string) (*ping.Stats, string, error) {
 		return nil, "", err
 	}
 
-	if !pres.Up {
+	if !stats.Up {
 		return nil, "", fmt.Errorf("ping %s(%s) failed: %w. Scanning aborted",
 			host, ip, ErrICMPResponseDontMatchEchoReply)
 	}
 
-	return pres, ip, nil
+	return stats, ip, nil
 }
 
 type scanResultError struct {
@@ -257,24 +257,17 @@ type scanResultError struct {
 }
 
 // Scan performs TCP and UDP port scanning if enabled in the configuration.
-func (s *Scanner) Scan(host, port string) (*ping.Stats, []*ScanResult, error) {
+func (s *Scanner) Scan(ip, port string) ([]*ScanResult, error) {
 	var (
-		wg    sync.WaitGroup
-		err   error
-		ip    string
-		stats *ping.Stats
+		wg  sync.WaitGroup
+		err error
 	)
 
 	resErrChan := make(chan *scanResultError, NumberOfScans)
 	results := make([]*ScanResult, 0, NumberOfScans)
 
-	stats, ip, err = s.getIP(host)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	if !s.Cfg.UDP && !s.Cfg.TCP {
-		return nil, nil, ErrAtLeastOneProtocolMustBeUsed
+		return nil, ErrAtLeastOneProtocolMustBeUsed
 	}
 
 	if s.Cfg.TCP {
@@ -322,10 +315,10 @@ func (s *Scanner) Scan(host, port string) (*ping.Stats, []*ScanResult, error) {
 	}
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return stats, results, nil
+	return results, nil
 }
 
 // SynScan performs a TCP half-open connection scan.
@@ -339,14 +332,41 @@ func (s *Scanner) SynScan(host, port string) (*ping.Stats,
 func (s *Scanner) RangeScan(host string,
 	ports []string,
 ) (*ping.Stats, []*ScanResult, error) {
-	return nil, nil, nil
+	var (
+		stats       *ping.Stats
+		ip          string
+		err         error
+		scanResults = make([]*ScanResult, 0)
+	)
+
+	stats, ip, err = s.PingHost(host)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, p := range ports {
+		res, err := s.Scan(ip, p)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		scanResults = append(scanResults, res...)
+	}
+
+	return stats, scanResults, nil
 }
 
-// VanillaScan scans 1-65535 ports(tcp,udp and syn if enabled).
+// VanillaScan scans 0-65535 ports(tcp,udp and syn if enabled).
 func (s *Scanner) VanillaScan(host string) (*ping.Stats,
 	[]*ScanResult, error,
 ) {
-	return nil, nil, nil
+	ports := make([]string, 0, LastPort)
+
+	for i := range LastPort {
+		ports = append(ports, fmt.Sprintf("%d", i+1))
+	}
+
+	return s.RangeScan(host, ports)
 }
 
 // SweepScan scans port (TCP, UDP and SYN if enabled) on each host from the provided host list.

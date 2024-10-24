@@ -8,4 +8,5 @@ const (
 	UDPMaxBufferSize    int = 1500
 	DefaultDelayRetry   int = 15
 	IncDelayRetry       int = 5
+	LastPort            int = 65535
 )
