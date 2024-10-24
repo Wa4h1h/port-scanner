@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,14 +37,14 @@ func (s *Scanner) delayRetry() {
 }
 
 func (s *Scanner) listenForDstUnreachable(ip string) error {
+	reply := make([]byte, UDPMaxBufferSize)
+
 	conn, err := icmp.ListenPacket("udp4", "0.0.0.0")
 	if err != nil {
-		return fmt.Errorf("error: create listen for dst unreachable socket: %w", err)
+		return fmt.Errorf("error: create icmp socket to listen to dst unreachable: %w", err)
 	}
 
 	defer conn.Close()
-
-	reply := make([]byte, UDPMaxBufferSize)
 
 	for {
 		n, addr, err := conn.ReadFrom(reply)
@@ -67,19 +68,34 @@ func (s *Scanner) listenForDstUnreachable(ip string) error {
 func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
 	descriptivePort := fmt.Sprintf("%s/udp", port)
 	service := PortToService(descriptivePort)
+
 	errChan := make(chan error)
 	dstUnreachChan := make(chan error)
 	scanRes := make(chan *ScanResult)
 
-	go func(e chan<- error) {
-		e <- s.listenForDstUnreachable(ip)
-	}(dstUnreachChan)
+	ipBytes, err := ping.IPStringToBytes(ip)
+	if err != nil {
+		return nil, err
+	}
 
-	conn, err := net.Dial("udp",
-		fmt.Sprintf("%s:%s", ip, port))
+	portInt, err := strconv.ParseInt(port, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("error: parse port: %w", err)
+	}
+
+	conn, err := net.DialUDP("udp", nil, &net.UDPAddr{
+		IP:   ipBytes,
+		Port: int(portInt),
+	})
 	if err != nil {
 		return nil, fmt.Errorf("error: dial udp: %w", err)
 	}
+
+	defer conn.Close()
+
+	go func(e chan<- error) {
+		e <- s.listenForDstUnreachable(ip)
+	}(dstUnreachChan)
 
 	go func() {
 		reply := make([]byte, UDPMaxBufferSize)
@@ -103,9 +119,12 @@ func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
 				continue
 			}
 
-			var n int
+			var (
+				n    int
+				addr net.Addr
+			)
 
-			n, err = conn.Read(reply)
+			n, addr, err = conn.ReadFrom(reply)
 			if err != nil {
 				i++
 
@@ -114,17 +133,19 @@ func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
 				continue
 			}
 
-			if n > 0 {
-				scanRes <- &ScanResult{
-					State:   Open,
-					Port:    descriptivePort,
-					Service: service,
+			if strings.Contains(addr.String(), ip) {
+				if n > 0 {
+					scanRes <- &ScanResult{
+						State:   Open,
+						Port:    descriptivePort,
+						Service: service,
+					}
+
+					return
 				}
 
-				return
+				i++
 			}
-
-			i++
 		}
 
 		errChan <- err
@@ -223,7 +244,7 @@ func (s *Scanner) getIP(host string) (*ping.Stats, string, error) {
 	}
 
 	if !pres.Up {
-		return nil, "", fmt.Errorf("error: ping %s(%s) failed: %w",
+		return nil, "", fmt.Errorf("ping %s(%s) failed: %w. Scanning aborted",
 			host, ip, ErrICMPResponseDontMatchEchoReply)
 	}
 

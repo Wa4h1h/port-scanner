@@ -28,7 +28,7 @@ func init() {
 		key := fmt.Sprintf("%s/%s", port, proto)
 		_, ok := services[key]
 
-		if !ok {
+		if !ok && row[0] != "" {
 			services[key] = row[0]
 		}
 	}
@@ -36,6 +36,7 @@ func init() {
 
 func PortToService(descriptivePort string) string {
 	s, ok := services[descriptivePort]
+
 	if !ok {
 		s = descriptivePort
 	}
