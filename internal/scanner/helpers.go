@@ -13,6 +13,5 @@ func printSpaces(str string) {
 }
 
 func printHeader() {
-	header := "PORT\t\tSTATE\t\tSERVICE"
-	fmt.Fprintln(os.Stdout, header)
+	fmt.Fprintln(os.Stdout, "PORT\t\tSTATE\t\tSERVICE")
 }

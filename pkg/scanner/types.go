@@ -30,9 +30,20 @@ type Config struct {
 	Timeout      int
 	CScan        int
 	BackoffLimit int
+	DelayRetry   int
 	TCP          bool
 	UDP          bool
 	SYN          bool
+}
+
+var DefaultConfig = Config{
+	Timeout:      DefaultTimeout,
+	CScan:        DefaultCScan,
+	BackoffLimit: DefaultBackoffLimit,
+	DelayRetry:   DefaultDelayRetry,
+	TCP:          true,
+	UDP:          false,
+	SYN:          false,
 }
 
 type Scanner struct {

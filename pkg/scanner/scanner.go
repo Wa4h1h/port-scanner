@@ -30,6 +30,11 @@ func NewScanExecutor(c *Config, privilegedPing bool) ScanExecutor {
 	return s
 }
 
+func (s *Scanner) delayRetry() {
+	time.Sleep(time.Duration(s.Cfg.DelayRetry) * time.Millisecond)
+	s.Cfg.DelayRetry += IncDelayRetry
+}
+
 func (s *Scanner) listenForDstUnreachable(ip string) error {
 	conn, err := icmp.ListenPacket("udp4", "0.0.0.0")
 	if err != nil {
@@ -38,34 +43,37 @@ func (s *Scanner) listenForDstUnreachable(ip string) error {
 
 	defer conn.Close()
 
-	reply := make([]byte, 1500)
+	reply := make([]byte, UDPMaxBufferSize)
 
 	for {
 		n, addr, err := conn.ReadFrom(reply)
 		if err != nil {
-			return fmt.Errorf("error: rading icmp dst unreachable packet: %w", err)
+			return fmt.Errorf("error: reading icmp dst unreachable packet: %w", err)
 		}
 
 		if n > 0 {
 			if strings.Contains(addr.String(), ip) {
-				_, err := icmp2.ParseUnreachable(reply[:n])
-				if err != nil {
-					return err
+				p, _ := icmp2.ParseUnreachable(reply[:n])
+				if p != nil {
+					break
 				}
-
-				return nil
 			}
 		}
 	}
+
+	return nil
 }
 
 func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
+	descriptivePort := fmt.Sprintf("%s/udp", port)
+	service := PortToService(descriptivePort)
 	errChan := make(chan error)
+	dstUnreachChan := make(chan error)
 	scanRes := make(chan *ScanResult)
 
 	go func(e chan<- error) {
 		e <- s.listenForDstUnreachable(ip)
-	}(errChan)
+	}(dstUnreachChan)
 
 	conn, err := net.Dial("udp",
 		fmt.Sprintf("%s:%s", ip, port))
@@ -74,21 +82,78 @@ func (s *Scanner) udpScan(ip, port string) (*ScanResult, error) {
 	}
 
 	go func() {
+		reply := make([]byte, UDPMaxBufferSize)
+
 		for i := 0; i < s.Cfg.BackoffLimit; {
-			_, err := conn.Write([]byte{0x0})
+			_, err = conn.Write([]byte{0x0})
 			if err != nil {
 				i++
 
+				s.delayRetry()
+
 				continue
 			}
+
+			if err = conn.SetReadDeadline(time.Now().
+				Add(time.Duration(s.Cfg.Timeout) * time.Second)); err != nil {
+				i++
+
+				s.delayRetry()
+
+				continue
+			}
+
+			var n int
+
+			n, err = conn.Read(reply)
+			if err != nil {
+				i++
+
+				s.delayRetry()
+
+				continue
+			}
+
+			if n > 0 {
+				scanRes <- &ScanResult{
+					State:   Open,
+					Port:    descriptivePort,
+					Service: service,
+				}
+
+				return
+			}
+
+			i++
 		}
+
+		errChan <- err
 	}()
 
-	select {
-	case err = <-errChan:
-		return nil, err
-	case s := <-scanRes:
-		return s, nil
+	for {
+		select {
+		case dstUnreach := <-dstUnreachChan:
+			if dstUnreach == nil {
+				return &ScanResult{
+					State:   Closed,
+					Port:    descriptivePort,
+					Service: service,
+				}, nil
+			}
+		case err = <-errChan:
+			var netErr *net.OpError
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				return &ScanResult{
+					State:   Filtered,
+					Port:    descriptivePort,
+					Service: service,
+				}, nil
+			}
+
+			return nil, err
+		case res := <-scanRes:
+			return res, nil
+		}
 	}
 }
 
@@ -243,7 +308,9 @@ func (s *Scanner) Scan(host, port string) (*ping.Stats, []*ScanResult, error) {
 }
 
 // SynScan performs a TCP half-open connection scan.
-func (s *Scanner) SynScan(host, port string) (*ping.Stats, []*ScanResult, error) {
+func (s *Scanner) SynScan(host, port string) (*ping.Stats,
+	[]*ScanResult, error,
+) {
 	return nil, nil, nil
 }
 
@@ -255,7 +322,9 @@ func (s *Scanner) RangeScan(host string,
 }
 
 // VanillaScan scans 1-65535 ports(tcp,udp and syn if enabled).
-func (s *Scanner) VanillaScan(host string) (*ping.Stats, []*ScanResult, error) {
+func (s *Scanner) VanillaScan(host string) (*ping.Stats,
+	[]*ScanResult, error,
+) {
 	return nil, nil, nil
 }
 
