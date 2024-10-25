@@ -10,3 +10,10 @@ const (
 	IncDelayRetry       int = 5
 	LastPort            int = 65535
 )
+
+type Proto string
+
+const (
+	TCP Proto = "tcp"
+	UDP Proto = "udp"
+)

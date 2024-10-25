@@ -14,7 +14,7 @@ func HostToIP(ctx context.Context, host string) (string, error) {
 
 	ips, err := r.LookupIP(ctx, "ip4", host)
 	if err != nil {
-		return "", fmt.Errorf("error: lookup host: %w", err)
+		return "", fmt.Errorf("error: lookup host(%s): %w", host, err)
 	}
 
 	randIndex := rand.IntN(len(ips))
@@ -27,7 +27,7 @@ func HostToIP(ctx context.Context, host string) (string, error) {
 func IPToHost(ip string) (string, error) {
 	names, err := net.LookupAddr(ip)
 	if err != nil {
-		return "", fmt.Errorf("error: reverse lookup addr: %w", err)
+		return "", fmt.Errorf("error: reverse lookup addr(%s): %w", ip, err)
 	}
 
 	randIndex := rand.IntN(len(names))

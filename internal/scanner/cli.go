@@ -6,7 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/Wa4h1h/port-scanner/pkg/dns"
 
 	"github.com/Wa4h1h/port-scanner/pkg/ping"
 
@@ -24,6 +25,7 @@ type settings struct {
 	vanilla      bool
 	syn          bool
 	privileged   bool
+	ping         bool
 }
 
 type Cli struct {
@@ -52,6 +54,7 @@ func (c *Cli) registerFlags() {
 		"set pv(privileged) to true which allows using ping with raw socket type instead of dgram socket type")
 	c.flags.IntVar(&c.s.backOffLimit, "sr", scanner.DefaultBackoffLimit,
 		"number of scan retires before the scan is considered filtered")
+	c.flags.BoolVar(&c.s.ping, "pg", Ping, "ping before scanning")
 }
 
 func (c *Cli) parse(args []string) error {
@@ -86,6 +89,7 @@ func (c *Cli) Run(args []string) error {
 		Timeout:      c.s.timeout,
 		CScan:        c.s.cscan,
 		BackoffLimit: c.s.backOffLimit,
+		Ping:         c.s.ping,
 	}
 
 	s := scanner.NewScanExecutor(&cfg, c.s.privileged)
@@ -93,19 +97,16 @@ func (c *Cli) Run(args []string) error {
 	hosts := strings.Split(c.s.hosts, ",")
 	ports := strings.Split(c.s.ports, ",")
 
-	start := time.Now()
-
 	switch {
 	case len(hosts) > 1:
 		if len(ports) == 1 && ports[0] != "" {
-			sweepScanResults, err := s.SweepScan(hosts, ports[0])
-			if err != nil {
-				return err
-			}
+			sweepScanResults, rtt, errs := s.SweepScan(hosts, ports[0])
 
+			printErrors(errs)
 			c.printSweepScanResults(sweepScanResults)
+			printFooter(len(sweepScanResults), rtt)
 		} else {
-			fmt.Fprintln(os.Stderr, "provide at least one port to sweep scan")
+			fmt.Fprintln(os.Stderr, "provide only one port to sweep scan")
 		}
 	case len(hosts) == 1:
 		port := ports[0]
@@ -113,25 +114,27 @@ func (c *Cli) Run(args []string) error {
 		scanResults := make([]*scanner.ScanResult, 0)
 
 		var (
-			err       error
-			pingStats = new(ping.Stats)
+			errs  []error
+			err   error
+			stats *scanner.Stats
 		)
 
 		switch {
 		case len(ports) == 1:
 			if port == "" {
-				pingStats, scanResults, err = s.VanillaScan(host)
-				if err != nil {
-					return err
-				}
+				scanResults, stats, errs = s.VanillaScan(host)
+
+				printErrors(errs)
+
+				break
 			}
 
 			rangeCheck := strings.Contains(port, "-")
 
 			if rangeCheck {
 				var (
-					start int
-					end   int
+					startPort int
+					endPort   int
 				)
 
 				rangeStr := strings.Split(port, "-")
@@ -141,67 +144,42 @@ func (c *Cli) Run(args []string) error {
 
 				rangePorts := make([]string, 0)
 
-				start, err = strconv.Atoi(rangeStr[0])
+				startPort, err = strconv.Atoi(rangeStr[0])
 				if err != nil {
 					return err
 				}
 
-				end, err = strconv.Atoi(rangeStr[1])
+				endPort, err = strconv.Atoi(rangeStr[1])
 				if err != nil {
 					return err
 				}
 
-				for i := start; i <= end; i++ {
+				for i := startPort; i <= endPort; i++ {
 					rangePorts = append(rangePorts, fmt.Sprintf("%d", i))
 				}
 
-				pingStats, scanResults, err = s.RangeScan(host, rangePorts)
-				if err != nil {
-					return err
-				}
+				scanResults, stats, errs = s.Scan(host, rangePorts)
+
+				printErrors(errs)
 			} else {
-				var tmp []*scanner.ScanResult
+				scanResults, stats, errs = s.Scan(host, ports)
 
-				pingStats, host, err = s.PingHost(host)
-				if err != nil {
-					return err
-				}
-
-				if cfg.SYN {
-					pingStats, tmp, err = s.SynScan(host, port)
-					if err != nil {
-						return err
-					}
-
-					scanResults = append(scanResults, tmp...)
-				}
-
-				tmp, err = s.Scan(host, port)
-				if err != nil {
-					return err
-				}
-
-				scanResults = append(scanResults, tmp...)
+				printErrors(errs)
 			}
 
 		case len(ports) > 1:
-			pingStats, scanResults, err = s.RangeScan(host, ports)
-			if err != nil {
-				return err
-			}
+			scanResults, stats, errs = s.Scan(host, ports)
 
+			printErrors(errs)
 		}
 
-		end := time.Now().Sub(start)
-
-		c.printPing(host, pingStats)
-		printHeader()
-
-		for _, res := range scanResults {
-			c.printScanResult(res)
+		if len(scanResults) != 0 {
+			c.printResults(host, stats, scanResults)
 		}
 
-		fmt.Fprintf(os.Stdout, "\ndone scanning %d host(s) in %.2fs", len(hosts), end.Seconds())
+		if stats != nil {
+			printFooter(len(scanResults), stats.Rtt)
+		}
 	}
 
 	return nil
@@ -209,16 +187,24 @@ func (c *Cli) Run(args []string) error {
 
 func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult) {
 	for _, res := range results {
-		c.printPing(res.Host, res.PingStats)
-		printHeader()
-		c.printScanResult(&res.ScanResult)
+		c.printResults(res.Host,
+			res.Stats, res.ScanResults)
+
+		fmt.Println()
 	}
 }
 
+func (c *Cli) printDnsInfo(host string, dnsInfo *dns.DNSInfo) {
+	fmt.Fprintf(os.Stdout, "-----scanning %s(%s)-----\n", host, dnsInfo.IP)
+	fmt.Fprintf(os.Stdout, "rDNS: %s\n", dnsInfo.RDns)
+}
+
 func (c *Cli) printPing(host string, pingStats *ping.Stats) {
-	fmt.Fprintf(os.Stdout, "Scanning %s(%s)\n", host, pingStats.IP)
-	fmt.Fprintf(os.Stdout, "%s is Up: %.2fs\n", pingStats.IP, pingStats.Rtt)
-	fmt.Fprintf(os.Stdout, "rDNS: %s\n", pingStats.RDns)
+	fmt.Fprintf(os.Stdout, "-----ping %s(%s) stats-----\n", host, pingStats.DnsInfo.IP)
+	fmt.Fprintf(os.Stdout, "%s is Up: %.2fs\n", pingStats.DnsInfo.IP, pingStats.Rtt)
+	fmt.Fprintf(os.Stdout, "%d packets transmitted, %d packets received, %.2f packet loss\n",
+		pingStats.NSent, pingStats.NReceived, pingStats.PacketLoss)
+	fmt.Fprintf(os.Stdout, "round-trip avg = %.2fs\n", pingStats.Rtt)
 }
 
 func (c *Cli) printScanResult(result *scanner.ScanResult) {
@@ -227,4 +213,24 @@ func (c *Cli) printScanResult(result *scanner.ScanResult) {
 	fmt.Fprint(os.Stdout, result.State)
 	printSpaces(string(result.State))
 	fmt.Fprintf(os.Stdout, "%s\n", result.Service)
+}
+
+func (c *Cli) printResults(host string, stats *scanner.Stats,
+	scanResults []*scanner.ScanResult,
+) {
+	if stats != nil {
+		if stats.Ping != nil {
+			c.printPing(host, stats.Ping)
+		}
+
+		if stats.DNS != nil {
+			c.printDnsInfo(host, stats.DNS)
+		}
+	}
+
+	printHeader()
+
+	for _, res := range scanResults {
+		c.printScanResult(res)
+	}
 }

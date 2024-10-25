@@ -1,6 +1,9 @@
 package scanner
 
-import "github.com/Wa4h1h/port-scanner/pkg/ping"
+import (
+	"github.com/Wa4h1h/port-scanner/pkg/dns"
+	"github.com/Wa4h1h/port-scanner/pkg/ping"
+)
 
 // make sure we conform to ScanExecutor.
 var _ ScanExecutor = &Scanner{}
@@ -14,16 +17,17 @@ const (
 )
 
 type ScanResult struct {
+	Rtt     float64
 	Service string
 	Port    string
 	State   State
 }
 
 type SweepScanResult struct {
-	Host      string
-	IP        string
-	PingStats *ping.Stats
-	ScanResult
+	Host        string
+	IP          string
+	Stats       *Stats
+	ScanResults []*ScanResult
 }
 
 type Config struct {
@@ -34,6 +38,7 @@ type Config struct {
 	TCP          bool
 	UDP          bool
 	SYN          bool
+	Ping         bool
 }
 
 var DefaultConfig = Config{
@@ -44,6 +49,13 @@ var DefaultConfig = Config{
 	TCP:          true,
 	UDP:          false,
 	SYN:          false,
+	Ping:         false,
+}
+
+type Stats struct {
+	DNS  *dns.DNSInfo
+	Ping *ping.Stats
+	Rtt  float64
 }
 
 type Scanner struct {
@@ -52,10 +64,11 @@ type Scanner struct {
 }
 
 type ScanExecutor interface {
-	PingHost(host string) (*ping.Stats, string, error)
-	Scan(host string, port string) ([]*ScanResult, error)
-	SynScan(host string, port string) (*ping.Stats, []*ScanResult, error)
-	RangeScan(host string, ports []string) (*ping.Stats, []*ScanResult, error)
-	VanillaScan(host string) (*ping.Stats, []*ScanResult, error)
-	SweepScan(hosts []string, port string) ([]*SweepScanResult, error)
+	PingHost(host string) (*ping.Stats, error)
+	SynScan(ip string, port string) ([]*ScanResult, *Stats, error)
+	UdpScan(ip, port string) (*ScanResult, error)
+	TcpScan(ip, port string) (*ScanResult, error)
+	Scan(host string, ports []string) ([]*ScanResult, *Stats, []error)
+	VanillaScan(host string) ([]*ScanResult, *Stats, []error)
+	SweepScan(hosts []string, port string) ([]*SweepScanResult, float64, []error)
 }

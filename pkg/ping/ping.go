@@ -53,8 +53,9 @@ func (p *Ping) sendPacket(ipBytes []byte,
 	seq int,
 ) error {
 	var (
-		err error
-		b   []byte
+		err  error
+		b    []byte
+		addr net.Addr
 	)
 
 	m := icmp.Message{
@@ -77,10 +78,19 @@ func (p *Ping) sendPacket(ipBytes []byte,
 		return fmt.Errorf("error: set ping write timeout: %w", err)
 	}
 
-	_, err = p.conn.WriteTo(b, &net.UDPAddr{
-		IP:   ipBytes,
-		Port: 33434,
-	})
+	switch {
+	case p.cfg.Privileged:
+		addr = &net.IPAddr{
+			IP: ipBytes,
+		}
+	default:
+		addr = &net.UDPAddr{
+			IP:   ipBytes,
+			Port: 33434,
+		}
+	}
+
+	_, err = p.conn.WriteTo(b, addr)
 	if err != nil {
 		return fmt.Errorf("error: ping: %w", err)
 	}
@@ -277,16 +287,20 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 	s.PacketLoss = float64((s.NSent - s.NReceived) / p.cfg.PingNum)
 	s.Up = s.NReceived > 0
 	s.Rtt = math.Floor(s.Rtt*100) / 100
-	s.IP = ip
+	dnsInfo := new(dns.DNSInfo)
 
-	s.RDns, err = dns.IPToHost(ip)
+	dnsInfo.IP = ip
+
+	dnsInfo.RDns, err = dns.IPToHost(ip)
 	if err != nil {
 		if !strings.Contains(err.Error(), "no such host") {
 			return nil, err
 		}
 
-		s.RDns = ip
+		dnsInfo.RDns = ip
 	}
+
+	s.DnsInfo = dnsInfo
 
 	return s, nil
 }

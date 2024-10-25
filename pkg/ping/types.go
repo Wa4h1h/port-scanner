@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Wa4h1h/port-scanner/pkg/dns"
+
 	"golang.org/x/net/icmp"
 )
 
@@ -58,10 +60,8 @@ type tmpResult struct {
 }
 
 type Stats struct {
-	// IP represent the ip of the host, that it is being pinged
-	IP string
-	// reverse dns record
-	RDns string
+	// DnsInfo holds information about dns name and the reverse dns name
+	DnsInfo *dns.DNSInfo
 	// avg rtt
 	Rtt float64
 	// number of sent packet
