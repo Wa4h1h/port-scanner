@@ -18,11 +18,9 @@ func printHeader() {
 
 func printErrors(errs []error) {
 	if len(errs) > 0 {
-		fmt.Fprintln(os.Stdout, "------------ ")
 		for _, err := range errs {
 			fmt.Fprintln(os.Stderr, err)
 		}
-		fmt.Fprintln(os.Stdout, "------------ \n")
 	}
 }
 

@@ -247,7 +247,7 @@ func (s *Scanner) PingHost(host string) (*ping.Stats, error) {
 	}
 
 	if !stats.Up {
-		return nil, fmt.Errorf("ping %s(%s) failed: %w. Scanning aborted",
+		return nil, fmt.Errorf("ping %s(%s) failed: %w",
 			host, ip, ErrICMPResponseDontMatchEchoReply)
 	}
 
@@ -371,10 +371,7 @@ func (s *Scanner) Scan(host string,
 		return nil, nil, errs
 	}
 
-	dnsInfo.RDns, err = dns.IPToHost(dnsInfo.IP)
-	if err != nil {
-		errs = append(errs, err)
-	}
+	dnsInfo.RDns = dns.IPToHost(dnsInfo.IP)
 
 	if s.Cfg.Ping {
 		pingStats, err = s.PingHost(host)
@@ -428,35 +425,33 @@ func (s *Scanner) VanillaScan(host string) (
 // SweepScan scans port (TCP, UDP and SYN if enabled) on each host from the provided host list.
 func (s *Scanner) SweepScan(hosts []string,
 	port string,
-) ([]*SweepScanResult, float64, []error) {
+) ([]*SweepScanResult, float64) {
 	sweepScanResults := make([]*SweepScanResult, 0, len(hosts))
-	errs := make([]error, 0)
 
 	var accRtt float64
 
 	for _, h := range hosts {
+		tmpResults := &SweepScanResult{
+			Host: h,
+			Errs: make([]error, 0),
+		}
+
 		sresult, stats, tmpErrs := s.Scan(h, []string{port})
 		if len(tmpErrs) != 0 {
-			errs = append(errs, tmpErrs...)
+			tmpResults.Errs = append(tmpResults.Errs,
+				tmpErrs...)
+		} else {
+			accRtt += stats.Rtt
+			tmpResults.ScanResults = sresult
+			tmpResults.Stats = stats
 
-			continue
-		}
-
-		accRtt += stats.Rtt
-
-		errs = append(errs, tmpErrs...)
-		tmpResults := &SweepScanResult{
-			Host:        h,
-			ScanResults: sresult,
-			Stats:       stats,
-		}
-
-		if stats.DNS != nil {
-			tmpResults.IP = stats.DNS.IP
+			if stats.DNS != nil {
+				tmpResults.IP = stats.DNS.IP
+			}
 		}
 
 		sweepScanResults = append(sweepScanResults, tmpResults)
 	}
 
-	return sweepScanResults, accRtt, errs
+	return sweepScanResults, accRtt
 }

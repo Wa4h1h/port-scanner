@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand/v2"
 	"net"
-	"strings"
 	"time"
 
 	icmp2 "github.com/Wa4h1h/port-scanner/pkg/icmp"
@@ -287,20 +286,10 @@ func (p *Ping) Ping(host string) (*Stats, error) {
 	s.PacketLoss = float64((s.NSent - s.NReceived) / p.cfg.PingNum)
 	s.Up = s.NReceived > 0
 	s.Rtt = math.Floor(s.Rtt*100) / 100
-	dnsInfo := new(dns.DNSInfo)
-
-	dnsInfo.IP = ip
-
-	dnsInfo.RDns, err = dns.IPToHost(ip)
-	if err != nil {
-		if !strings.Contains(err.Error(), "no such host") {
-			return nil, err
-		}
-
-		dnsInfo.RDns = ip
+	s.DnsInfo = &dns.DNSInfo{
+		IP:   ip,
+		RDns: dns.IPToHost(ip),
 	}
-
-	s.DnsInfo = dnsInfo
 
 	return s, nil
 }

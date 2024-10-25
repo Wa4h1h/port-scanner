@@ -35,6 +35,7 @@ type SweepScanResult struct {
 	IP          string
 	Stats       *Stats
 	ScanResults []*ScanResult
+	Errs        []error
 }
 
 type Config struct {
@@ -85,5 +86,5 @@ type ScanExecutor interface {
 	TcpScan(ip, port string) (*ScanResult, error)
 	Scan(host string, ports []string) ([]*ScanResult, *Stats, []error)
 	VanillaScan(host string) ([]*ScanResult, *Stats, []error)
-	SweepScan(hosts []string, port string) ([]*SweepScanResult, float64, []error)
+	SweepScan(hosts []string, port string) ([]*SweepScanResult, float64)
 }

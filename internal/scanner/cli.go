@@ -100,11 +100,9 @@ func (c *Cli) Run(args []string) error {
 	switch {
 	case len(hosts) > 1:
 		if len(ports) == 1 && ports[0] != "" {
-			sweepScanResults, rtt, errs := s.SweepScan(hosts, ports[0])
+			sweepScanResults, rtt := s.SweepScan(hosts, ports[0])
 
-			printErrors(errs)
-			c.printSweepScanResults(sweepScanResults)
-			printFooter(len(sweepScanResults), rtt)
+			c.printSweepScanResults(sweepScanResults, rtt)
 		} else {
 			fmt.Fprintln(os.Stderr, "provide only one port to sweep scan")
 		}
@@ -185,13 +183,27 @@ func (c *Cli) Run(args []string) error {
 	return nil
 }
 
-func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult) {
+func (c *Cli) printSweepScanResults(results []*scanner.SweepScanResult, rtt float64) {
+	var accRes int
+
 	for _, res := range results {
+		if len(res.Errs) != 0 {
+			fmt.Fprintf(os.Stdout, "-----scanning %s aborted-----\n",
+				res.Host)
+			printErrors(res.Errs)
+
+			continue
+		}
+
 		c.printResults(res.Host,
 			res.Stats, res.ScanResults)
 
+		accRes++
+
 		fmt.Println()
 	}
+
+	printFooter(accRes, rtt)
 }
 
 func (c *Cli) printDnsInfo(host string, dnsInfo *dns.DNSInfo) {
