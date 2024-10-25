@@ -17,10 +17,17 @@ const (
 )
 
 type ScanResult struct {
-	Rtt     float64
+	// Rtt(round trip) of a single scan in seconds
+	Rtt float64
+	// service name
 	Service string
-	Port    string
-	State   State
+	// service port
+	Port string
+	// scan state
+	// open when host is ready to accept connection
+	// filtered when host did not return a response/timed out
+	// closed when the host returns icmp type 3 code 13(dst unreachable) or RST packet
+	State State
 }
 
 type SweepScanResult struct {
@@ -31,14 +38,22 @@ type SweepScanResult struct {
 }
 
 type Config struct {
-	Timeout      int
-	CScan        int
+	// scan timeout
+	Timeout int
+	// max number of concurrent scans
+	CScan int
+	// number scan retries
 	BackoffLimit int
-	DelayRetry   int
-	TCP          bool
-	UDP          bool
-	SYN          bool
-	Ping         bool
+	// Time until a scan is attempted again
+	DelayRetry int
+	// enable tcp scan
+	TCP bool
+	// enable udp scan
+	UDP bool
+	// enable half open connection scan
+	SYN bool
+	// enable ping before scanning
+	Ping bool
 }
 
 var DefaultConfig = Config{
