@@ -1,5 +1,7 @@
 package scanner
 
+import "fmt"
+
 const (
 	DefaultTimeout      int = 1
 	DefaultCScan        int = 3
@@ -17,3 +19,11 @@ const (
 	TCP Proto = "tcp"
 	UDP Proto = "udp"
 )
+
+var ianaPorts = make([]string, 0, LastPort)
+
+func init() {
+	for i := range LastPort {
+		ianaPorts = append(ianaPorts, fmt.Sprintf("%d", i+1))
+	}
+}

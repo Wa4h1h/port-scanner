@@ -82,8 +82,8 @@ type Scanner struct {
 type ScanExecutor interface {
 	PingHost(host string) (*ping.Stats, error)
 	SynScan(ip string, port string) ([]*ScanResult, *Stats, error)
-	UdpScan(ip, port string) (*ScanResult, error)
-	TcpScan(ip, port string) (*ScanResult, error)
+	UDPScan(ip, port string) (*ScanResult, error)
+	TCPScan(ip, port string) (*ScanResult, error)
 	Scan(host string, ports []string) ([]*ScanResult, *Stats, []error)
 	VanillaScan(host string) ([]*ScanResult, *Stats, []error)
 	SweepScan(hosts []string, port string) ([]*SweepScanResult, float64)

@@ -67,7 +67,11 @@ func (s *Scanner) listenForDstUnreachable(ip string) error {
 }
 
 // UdpScan performs a single udp scan
-func (s *Scanner) UdpScan(ip, port string) (*ScanResult, error) {
+func (s *Scanner) UDPScan(ip, port string) (*ScanResult, error) {
+	defer func() {
+		s.Cfg.DelayRetry = DefaultDelayRetry
+	}()
+
 	descriptivePort := fmt.Sprintf("%s/udp", port)
 	service := PortToService(descriptivePort)
 
@@ -181,7 +185,11 @@ func (s *Scanner) UdpScan(ip, port string) (*ScanResult, error) {
 }
 
 // TcpScan performs a single tcp scan
-func (s *Scanner) TcpScan(ip, port string) (*ScanResult, error) {
+func (s *Scanner) TCPScan(ip, port string) (*ScanResult, error) {
+	defer func() {
+		s.Cfg.DelayRetry = DefaultDelayRetry
+	}()
+
 	descriptivePort := fmt.Sprintf("%s/tcp", port)
 	service := PortToService(descriptivePort)
 
@@ -201,6 +209,8 @@ func (s *Scanner) TcpScan(ip, port string) (*ScanResult, error) {
 			var nErr net.Error
 			if errors.As(err, &nErr) && nErr.Timeout() {
 				i++
+
+				s.delayRetry()
 
 				continue
 			}
@@ -275,9 +285,9 @@ func (s *Scanner) simpleScan(ip, port string, proto Proto,
 
 	switch proto {
 	case UDP:
-		res, err = s.UdpScan(ip, port)
+		res, err = s.UDPScan(ip, port)
 	case TCP:
-		res, err = s.TcpScan(ip, port)
+		res, err = s.TCPScan(ip, port)
 	}
 
 	end = time.Since(start)
@@ -413,13 +423,7 @@ func (s *Scanner) Scan(host string,
 func (s *Scanner) VanillaScan(host string) (
 	[]*ScanResult, *Stats, []error,
 ) {
-	ports := make([]string, 0, LastPort)
-
-	for i := range LastPort {
-		ports = append(ports, fmt.Sprintf("%d", i+1))
-	}
-
-	return s.Scan(host, ports)
+	return s.Scan(host, ianaPorts)
 }
 
 // SweepScan scans port (TCP, UDP and SYN if enabled) on each host from the provided host list.
