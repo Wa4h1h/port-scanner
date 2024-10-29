@@ -13,11 +13,12 @@ const (
 	LastPort            int = 65535
 )
 
-type Proto string
+type ScanType string
 
 const (
-	TCP Proto = "tcp"
-	UDP Proto = "udp"
+	TCP ScanType = "tcp"
+	UDP ScanType = "udp"
+	SYN ScanType = "syn"
 )
 
 var ianaPorts = make([]string, 0, LastPort)

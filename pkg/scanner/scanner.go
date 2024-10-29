@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Wa4h1h/port-scanner/pkg/tcp"
 
 	icmp2 "github.com/Wa4h1h/port-scanner/pkg/icmp"
 	"golang.org/x/net/icmp"
@@ -269,7 +272,7 @@ type scanResultError struct {
 	err    error
 }
 
-func (s *Scanner) simpleScan(ip, port string, proto Proto,
+func (s *Scanner) execScan(ip, port string, proto ScanType,
 	wg *sync.WaitGroup, r chan<- *scanResultError,
 ) {
 	var (
@@ -288,6 +291,8 @@ func (s *Scanner) simpleScan(ip, port string, proto Proto,
 		res, err = s.UDPScan(ip, port)
 	case TCP:
 		res, err = s.TCPScan(ip, port)
+	case SYN:
+		res, err = s.SynScan(ip, port)
 	}
 
 	end = time.Since(start)
@@ -309,26 +314,26 @@ func (s *Scanner) scan(ip, port string) ([]*ScanResult, []error) {
 	resErrChan := make(chan *scanResultError, NumberOfScans)
 	results := make([]*ScanResult, 0, NumberOfScans)
 
-	if !s.Cfg.UDP && !s.Cfg.TCP {
+	if !s.Cfg.UDP && !s.Cfg.TCP && !s.Cfg.SYN {
 		return nil, []error{ErrAtLeastOneProtocolMustBeUsed}
 	}
 
 	if s.Cfg.TCP {
 		wg.Add(1)
 
-		go s.simpleScan(ip, port, TCP, &wg, resErrChan)
+		go s.execScan(ip, port, TCP, &wg, resErrChan)
 	}
 
 	if s.Cfg.UDP {
 		wg.Add(1)
 
-		go s.simpleScan(ip, port, UDP, &wg, resErrChan)
+		go s.execScan(ip, port, UDP, &wg, resErrChan)
 	}
 
 	if s.Cfg.SYN {
 		wg.Add(1)
 
-		go s.halfOpenConnScan(ip, port, &wg, resErrChan)
+		go s.execScan(ip, port, SYN, &wg, resErrChan)
 	}
 
 	go func(r chan *scanResultError) {
@@ -350,15 +355,70 @@ func (s *Scanner) scan(ip, port string) ([]*ScanResult, []error) {
 	return results, errs
 }
 
-func (s *Scanner) halfOpenConnScan(ip, port string, wg *sync.WaitGroup,
-	r chan<- *scanResultError) {
-}
-
 // SynScan performs a TCP half-open connection scan.
-func (s *Scanner) SynScan(ip, ports string) (
-	[]*ScanResult, *Stats, error,
-) {
-	return nil, nil, nil
+func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
+	dstAddr, err := ping.IPStringToBytes(ip)
+	if err != nil {
+		return nil, err
+	}
+
+	srcAddr, err := ping.IPStringToBytes(GetLocalIP())
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := net.DialIP("ip4:tcp", &net.IPAddr{
+		IP: srcAddr,
+	}, &net.IPAddr{
+		IP: dstAddr,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error: dial %s:%s: %w", ip, port, err)
+	}
+
+	srcPort, err := GetFreePort()
+	if err != nil {
+		return nil, err
+	}
+
+	dstPort, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return nil, fmt.Errorf("error: pares port %s to uin16: %w", port, err)
+	}
+
+	tcpHeader := tcp.TCPHeader{
+		SeqNum:    rand.Uint32(),
+		AckNum:    0,
+		SrcPort:   srcPort,
+		DstPort:   uint16(dstPort),
+		Window:    0xffff,
+		Checksum:  0,
+		Ptr:       0,
+		CtrlFlags: tcp.SYN,
+		Offset:    5,
+		Reserved:  0,
+		Options:   make([]byte, 0),
+	}
+
+	packet := tcp.Packet{
+		Header: &tcpHeader,
+		Body:   make([]byte, 0),
+	}
+
+	b, err := packet.Marshal()
+
+	csum := tcp.CheckSum(b, srcAddr, dstAddr)
+
+	packet.Header.Checksum = csum
+
+	b, err = packet.Marshal()
+
+	_, err = conn.Write(b)
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, err
 }
 
 // Scan scan all the provided ports(tcp,udp and syn if enabled) on the provided host.

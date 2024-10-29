@@ -3,6 +3,7 @@ package tcp
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 )
 
 type TCPHeader struct {
@@ -24,33 +25,35 @@ type Packet struct {
 	Body   []byte
 }
 
-func Marshal(t *Packet) ([]byte, error) {
+func (p *Packet) Marshal() ([]byte, error) {
 	b := new(bytes.Buffer)
 
-	binary.Write(b, binary.BigEndian, t.Header.SrcPort)
-	binary.Write(b, binary.BigEndian, t.Header.DstPort)
-	binary.Write(b, binary.BigEndian, t.Header.SeqNum)
-	binary.Write(b, binary.BigEndian, t.Header.AckNum)
+	err := errors.Join(binary.Write(b, binary.BigEndian, p.Header.SrcPort),
+		binary.Write(b, binary.BigEndian, p.Header.DstPort),
+		binary.Write(b, binary.BigEndian, p.Header.SeqNum),
+		binary.Write(b, binary.BigEndian, p.Header.AckNum),
+	)
 
-	leftPart := uint16(t.Header.Offset)<<12 |
-		uint16(t.Header.Reserved)<<6 |
-		uint16(t.Header.CtrlFlags)
+	leftPart := uint16(p.Header.Offset)<<12 |
+		uint16(p.Header.Reserved)<<6 |
+		uint16(p.Header.CtrlFlags)
 
-	binary.Write(b, binary.BigEndian, leftPart)
-	binary.Write(b, binary.BigEndian, t.Header.Window)
-	binary.Write(b, binary.BigEndian, t.Header.Checksum)
-	binary.Write(b, binary.BigEndian, t.Header.Ptr)
-	binary.Write(b, binary.BigEndian, t.Header.Options)
-	binary.Write(b, binary.BigEndian, t.Body)
+	err = errors.Join(binary.Write(b, binary.BigEndian, leftPart),
+		binary.Write(b, binary.BigEndian, p.Header.Window),
+		binary.Write(b, binary.BigEndian, p.Header.Checksum),
+		binary.Write(b, binary.BigEndian, p.Header.Ptr),
+		binary.Write(b, binary.BigEndian, p.Header.Options),
+		binary.Write(b, binary.BigEndian, p.Body))
 
-	return b.Bytes(), nil
+	return b.Bytes(), err
 }
 
-func Unmarshal(b []byte) (*Packet, error) {
+func (p *Packet) Unmarshal(b []byte) (*Packet, error) {
 	return nil, nil
 }
 
-func CheckSum(data []byte, SrcIP uint32, DstIP uint32) uint16 {
+// CheckSum calculates TCP/IP checksum field following rfc1141
+func CheckSum(data []byte, SrcIP []byte, DstIP []byte) uint16 {
 	var (
 		sum        uint32
 		toSumBytes = make([]byte, 0)
@@ -62,17 +65,17 @@ func CheckSum(data []byte, SrcIP uint32, DstIP uint32) uint16 {
 	binary.Write(pHeaderBytes, binary.BigEndian, DstIP)
 	binary.Write(pHeaderBytes, binary.BigEndian, uint8(0))
 	binary.Write(pHeaderBytes, binary.BigEndian, uint8(6))
-	binary.Write(pHeaderBytes, binary.BigEndian, uint16(len(data)))
+	binary.Write(pHeaderBytes, binary.BigEndian, uint32(len(data)))
 
 	toSumBytes = append(toSumBytes, pHeaderBytes.Bytes()...)
 	toSumBytes = append(toSumBytes, data...)
 
-	for i := 0; i < len(toSumBytes); i += 2 {
-		sum += +uint32(toSumBytes[i]) + uint32(toSumBytes[i+1])
+	for i := 0; i+1 < len(toSumBytes); i += 2 {
+		sum += uint32(toSumBytes[i])<<8 + uint32(toSumBytes[i+1])
 	}
 
-	if len(toSumBytes)%2 != 0 {
-		sum += uint32(toSumBytes[len(toSumBytes)-1])
+	if len(toSumBytes)%2 == 1 {
+		sum += uint32(toSumBytes[len(toSumBytes)-1]) << 8
 	}
 
 	for sum > 0xffff {
