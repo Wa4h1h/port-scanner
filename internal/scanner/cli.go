@@ -119,7 +119,7 @@ func (c *Cli) Run(args []string) error {
 
 		switch {
 		case len(ports) == 1:
-			if port == "" {
+			if port == "" || c.s.vanilla {
 				scanResults, stats, errs = s.VanillaScan(host)
 
 				printErrors(errs)

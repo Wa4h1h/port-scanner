@@ -442,7 +442,7 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 				listenChan <- tmp
 
 				break loop
-			case <-time.After(time.Duration(s.Cfg.Timeout) * time.Second):
+			case <-time.After(time.Duration(s.Cfg.Timeout) * time.Millisecond):
 				if i+1 >= s.Cfg.BackoffLimit {
 					listenChan <- &ReadPacket{
 						Err: ErrSynTimedOut,
@@ -450,6 +450,8 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 
 					break loop
 				}
+
+				s.delayRetry()
 			}
 		}
 	}()
@@ -463,8 +465,6 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 		return nil, fmt.Errorf("error: dial %s:%s: %w", ip, port, err)
 	}
 
-	fmt.Println(ip)
-
 	defer conn.Close()
 
 	srcPort, err := GetFreePort()
@@ -474,7 +474,7 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 
 	dstPort, err := strconv.ParseUint(port, 10, 16)
 	if err != nil {
-		return nil, fmt.Errorf("error: pares port %s to uin16: %w", port, err)
+		return nil, fmt.Errorf("error: parse port %s to uin16: %w", port, err)
 	}
 
 	tcpHeader := tcp.TCPHeader{
@@ -531,6 +531,7 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 
 			return &sr, nil
 		}
+
 		return nil, err
 	}
 

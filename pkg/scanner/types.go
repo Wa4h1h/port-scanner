@@ -39,7 +39,7 @@ type SweepScanResult struct {
 }
 
 type Config struct {
-	// scan timeout in seconds
+	// scan timeout in milliseconds
 	Timeout int
 	// max number of concurrent scans
 	CScan int
@@ -58,7 +58,7 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
-	Timeout:      DefaultTimeout,
+	Timeout:      DefaultTimeout * 20,
 	CScan:        DefaultCScan,
 	BackoffLimit: DefaultBackoffLimit,
 	DelayRetry:   DefaultDelayRetry,
