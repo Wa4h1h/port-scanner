@@ -12,6 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
+
 	"github.com/Wa4h1h/port-scanner/pkg/tcp"
 
 	icmp2 "github.com/Wa4h1h/port-scanner/pkg/icmp"
@@ -187,7 +191,7 @@ func (s *Scanner) UDPScan(ip, port string) (*ScanResult, error) {
 	}
 }
 
-// TcpScan performs a single tcp scan
+// TCPScan performs a single tcp scan
 func (s *Scanner) TCPScan(ip, port string) (*ScanResult, error) {
 	defer func() {
 		s.Cfg.DelayRetry = DefaultDelayRetry
@@ -272,7 +276,7 @@ type scanResultError struct {
 	err    error
 }
 
-func (s *Scanner) execScan(ip, port string, proto ScanType,
+func (s *Scanner) execScan(ip, port string, scanType ScanType,
 	wg *sync.WaitGroup, r chan<- *scanResultError,
 ) {
 	var (
@@ -286,7 +290,7 @@ func (s *Scanner) execScan(ip, port string, proto ScanType,
 
 	start = time.Now()
 
-	switch proto {
+	switch scanType {
 	case UDP:
 		res, err = s.UDPScan(ip, port)
 	case TCP:
@@ -355,17 +359,74 @@ func (s *Scanner) scan(ip, port string) ([]*ScanResult, []error) {
 	return results, errs
 }
 
+type ReadPacket struct {
+	TCPPacket []byte
+	Err       error
+}
+
+// listenForIPPackets listen for all incoming ipv4 packets
+// returns the packet payload coming from the source IP
+func (s *Scanner) listenForIPPackets(netIntf string, src net.IP) *ReadPacket {
+	var readPacket ReadPacket
+
+	// Open the device for capturing
+	handle, err := pcap.OpenLive(netIntf, 1600, true, pcap.BlockForever)
+	if err != nil {
+		readPacket.Err = fmt.Errorf("error: open pcap: %w", err)
+
+		return &readPacket
+	}
+	defer handle.Close()
+
+	filter := "ip"
+
+	err = handle.SetBPFFilter(filter)
+	if err != nil {
+		readPacket.Err = fmt.Errorf("error: set BPFFilter: %w", err)
+
+		return &readPacket
+	}
+
+	// Use the handle as a packet source to process all packets
+	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	for packet := range packetSource.Packets() {
+		// Check for the IP layer
+		ipLayer := packet.Layer(layers.LayerTypeIPv4)
+		if ipLayer != nil {
+			ip, _ := ipLayer.(*layers.IPv4)
+
+			if ip.SrcIP.Equal(src) {
+				readPacket.TCPPacket = ip.Payload
+
+				break
+			}
+		}
+	}
+
+	return &readPacket
+}
+
 // SynScan performs a TCP half-open connection scan.
 func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
+	listenChan := make(chan *ReadPacket)
+	localIP, inter := GetLocalIP()
+
+	descriptivePort := fmt.Sprintf("%s/tcp", port)
+	service := PortToService(descriptivePort)
+
+	srcAddr, err := ping.IPStringToBytes(localIP)
+	if err != nil {
+		return nil, err
+	}
+
 	dstAddr, err := ping.IPStringToBytes(ip)
 	if err != nil {
 		return nil, err
 	}
 
-	srcAddr, err := ping.IPStringToBytes(GetLocalIP())
-	if err != nil {
-		return nil, err
-	}
+	go func() {
+		listenChan <- s.listenForIPPackets(inter, dstAddr)
+	}()
 
 	conn, err := net.DialIP("ip4:tcp", &net.IPAddr{
 		IP: srcAddr,
@@ -375,6 +436,8 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error: dial %s:%s: %w", ip, port, err)
 	}
+
+	defer conn.Close()
 
 	srcPort, err := GetFreePort()
 	if err != nil {
@@ -406,19 +469,49 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 	}
 
 	b, err := packet.Marshal()
+	if err != nil {
+		return nil, err
+	}
 
-	csum := tcp.CheckSum(b, srcAddr, dstAddr)
+	csum, err := tcp.CheckSum(b, srcAddr, dstAddr)
+	if err != nil {
+		return nil, err
+	}
 
 	packet.Header.Checksum = csum
 
 	b, err = packet.Marshal()
+	if err != nil {
+		return nil, err
+	}
 
 	_, err = conn.Write(b)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, err
+	tmp := <-listenChan
+
+	if tmp.Err != nil {
+		return nil, err
+	}
+
+	if err := packet.Unmarshal(tmp.TCPPacket); err != nil {
+		return nil, err
+	}
+
+	sr := ScanResult{
+		Service: service,
+		Port:    port,
+	}
+
+	if packet.FlagIsSYNACK() {
+		sr.State = Open
+	} else if packet.FlagIsRST() {
+		sr.State = Closed
+	}
+
+	return &sr, nil
 }
 
 // Scan scan all the provided ports(tcp,udp and syn if enabled) on the provided host.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 type TCPHeader struct {
@@ -38,7 +39,7 @@ func (p *Packet) Marshal() ([]byte, error) {
 		uint16(p.Header.Reserved)<<6 |
 		uint16(p.Header.CtrlFlags)
 
-	err = errors.Join(binary.Write(b, binary.BigEndian, leftPart),
+	err = errors.Join(err, binary.Write(b, binary.BigEndian, leftPart),
 		binary.Write(b, binary.BigEndian, p.Header.Window),
 		binary.Write(b, binary.BigEndian, p.Header.Checksum),
 		binary.Write(b, binary.BigEndian, p.Header.Ptr),
@@ -48,24 +49,54 @@ func (p *Packet) Marshal() ([]byte, error) {
 	return b.Bytes(), err
 }
 
-func (p *Packet) Unmarshal(b []byte) (*Packet, error) {
-	return nil, nil
+func (p *Packet) Unmarshal(b []byte) error {
+	var (
+		tcpHeader TCPHeader
+		leftPart  uint16
+	)
+
+	buffer := bytes.NewReader(b)
+
+	err := errors.Join(binary.Read(buffer, binary.BigEndian, &tcpHeader.SrcPort),
+		binary.Read(buffer, binary.BigEndian, &tcpHeader.DstPort),
+		binary.Read(buffer, binary.BigEndian, &tcpHeader.SeqNum),
+		binary.Read(buffer, binary.BigEndian, &tcpHeader.AckNum),
+		binary.Read(buffer, binary.BigEndian, &leftPart),
+		binary.Read(buffer, binary.BigEndian, &tcpHeader.Window),
+		binary.Read(buffer, binary.BigEndian, &tcpHeader.Checksum),
+		binary.Read(buffer, binary.BigEndian, &tcpHeader.Ptr))
+	if err != nil {
+		return fmt.Errorf("error: read tcp header: %w", err)
+	}
+
+	tcpHeader.Offset = uint8(leftPart >> 12)
+	tcpHeader.Reserved = uint8((leftPart >> 6) & 0x3f)
+	tcpHeader.CtrlFlags = uint8(leftPart & 0x3f)
+
+	p.Header = &tcpHeader
+	p.Body = b[tcpHeader.Offset:]
+
+	return nil
 }
 
-// CheckSum calculates TCP/IP checksum field following rfc1141
-func CheckSum(data []byte, SrcIP []byte, DstIP []byte) uint16 {
+// CheckSum calculates TCP/IP checksum field following rfc1071
+func CheckSum(data []byte, srcIP []byte, dstIP []byte) (uint16, error) {
 	var (
 		sum        uint32
+		err        error
 		toSumBytes = make([]byte, 0)
 	)
 
 	pHeaderBytes := new(bytes.Buffer)
 
-	binary.Write(pHeaderBytes, binary.BigEndian, SrcIP)
-	binary.Write(pHeaderBytes, binary.BigEndian, DstIP)
-	binary.Write(pHeaderBytes, binary.BigEndian, uint8(0))
-	binary.Write(pHeaderBytes, binary.BigEndian, uint8(6))
-	binary.Write(pHeaderBytes, binary.BigEndian, uint32(len(data)))
+	err = errors.Join(binary.Write(pHeaderBytes, binary.BigEndian, srcIP),
+		binary.Write(pHeaderBytes, binary.BigEndian, dstIP),
+		binary.Write(pHeaderBytes, binary.BigEndian, uint8(0)),
+		binary.Write(pHeaderBytes, binary.BigEndian, uint8(6)),
+		binary.Write(pHeaderBytes, binary.BigEndian, uint32(len(data))))
+	if err != nil {
+		return 0, fmt.Errorf("error: tcp/ip checksum: %w", err)
+	}
 
 	toSumBytes = append(toSumBytes, pHeaderBytes.Bytes()...)
 	toSumBytes = append(toSumBytes, data...)
@@ -82,5 +113,13 @@ func CheckSum(data []byte, SrcIP []byte, DstIP []byte) uint16 {
 		sum = (sum >> 16) + (sum & 0xffff)
 	}
 
-	return ^uint16(sum)
+	return ^uint16(sum), nil
+}
+
+func (p *Packet) FlagIsSYNACK() bool {
+	return p.Header.CtrlFlags == SYNACK
+}
+
+func (p *Packet) FlagIsRST() bool {
+	return p.Header.CtrlFlags == RST
 }

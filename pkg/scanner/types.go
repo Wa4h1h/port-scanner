@@ -39,7 +39,7 @@ type SweepScanResult struct {
 }
 
 type Config struct {
-	// scan timeout
+	// scan timeout in seconds
 	Timeout int
 	// max number of concurrent scans
 	CScan int

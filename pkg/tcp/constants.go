@@ -1,6 +1,7 @@
 package tcp
 
 const (
-	SYN uint8 = 2
-	RST uint8 = 4
+	SYN    uint8 = 2
+	SYNACK uint8 = 18
+	RST    uint8 = 4
 )

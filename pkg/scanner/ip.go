@@ -1,23 +1,27 @@
 package scanner
 
 import (
-	"fmt"
 	"net"
 )
 
-func GetLocalIP() string {
-	addrs, err := net.InterfaceAddrs()
+func GetLocalIP() (string, string) {
+	ifaces, err := net.Interfaces()
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(addrs)
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			continue
+		}
 
-	for _, address := range addrs {
-		// check the address type and if it is not a loopback the display it
-		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
+		for _, address := range addrs {
+			// check the address type and if it is not a loopback the display it
+			if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					return ipnet.IP.String(), i.Name
+				}
 			}
 		}
 	}

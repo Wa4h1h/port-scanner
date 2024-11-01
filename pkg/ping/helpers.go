@@ -2,27 +2,19 @@ package ping
 
 import (
 	"fmt"
-	"strconv"
+	"net"
 	"strings"
 )
 
-func IPStringToBytes(ip string) ([]byte, error) {
-	ipStr := strings.Split(ip, ".")
-
-	if len(ipStr) != 4 {
+func IPStringToBytes(ip string) (net.IP, error) {
+	if len(strings.Split(ip, ".")) != 4 {
 		return nil, ErrInvalidIP
 	}
 
-	ipBytes := make([]byte, 0, 4)
-
-	for _, octet := range ipStr {
-		val, err := strconv.ParseUint(octet, 10, 8)
-		if err != nil {
-			return nil, fmt.Errorf("error: convert str to uint: %w", err)
-		}
-
-		ipBytes = append(ipBytes, uint8(val))
+	ipAddr, err := net.ResolveIPAddr("ip", ip)
+	if err != nil {
+		return nil, fmt.Errorf("error: resolve ip %s: %w", ip, err)
 	}
 
-	return ipBytes, nil
+	return ipAddr.IP, nil
 }
