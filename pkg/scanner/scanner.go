@@ -366,44 +366,54 @@ type ReadPacket struct {
 
 // listenForIPPackets listen for all incoming ipv4 packets
 // returns the packet payload coming from the source IP
-func (s *Scanner) listenForIPPackets(netIntf string, src net.IP) *ReadPacket {
-	var readPacket ReadPacket
+func (s *Scanner) listenForIPPackets(netIntf string, src net.IP) <-chan *ReadPacket {
+	readPacketCh := make(chan *ReadPacket)
 
-	// Open the device for capturing
-	handle, err := pcap.OpenLive(netIntf, 1600, true, pcap.BlockForever)
-	if err != nil {
-		readPacket.Err = fmt.Errorf("error: open pcap: %w", err)
+	go func(ch chan<- *ReadPacket) {
+		var readPacket ReadPacket
+		// Open the device for capturing
+		handle, err := pcap.OpenLive(netIntf, 1600, true, pcap.BlockForever)
+		if err != nil {
+			readPacket.Err = fmt.Errorf("error: open pcap: %w", err)
 
-		return &readPacket
-	}
-	defer handle.Close()
+			ch <- &readPacket
 
-	filter := "ip"
+			return
+		}
 
-	err = handle.SetBPFFilter(filter)
-	if err != nil {
-		readPacket.Err = fmt.Errorf("error: set BPFFilter: %w", err)
+		defer handle.Close()
 
-		return &readPacket
-	}
+		filter := "ip"
 
-	// Use the handle as a packet source to process all packets
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	for packet := range packetSource.Packets() {
-		// Check for the IP layer
-		ipLayer := packet.Layer(layers.LayerTypeIPv4)
-		if ipLayer != nil {
-			ip, _ := ipLayer.(*layers.IPv4)
+		err = handle.SetBPFFilter(filter)
+		if err != nil {
+			readPacket.Err = fmt.Errorf("error: set BPFFilter: %w", err)
 
-			if ip.SrcIP.Equal(src) {
-				readPacket.TCPPacket = ip.Payload
+			ch <- &readPacket
 
-				break
+			return
+		}
+
+		// Use the handle as a packet source to process all packets
+		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+		for packet := range packetSource.Packets() {
+			// Check for the IP layer
+			ipLayer := packet.Layer(layers.LayerTypeIPv4)
+			if ipLayer != nil {
+				ip, _ := ipLayer.(*layers.IPv4)
+
+				if ip.SrcIP.Equal(src) {
+					readPacket.TCPPacket = ip.Payload
+
+					ch <- &readPacket
+
+					break
+				}
 			}
 		}
-	}
+	}(readPacketCh)
 
-	return &readPacket
+	return readPacketCh
 }
 
 // SynScan performs a TCP half-open connection scan.
@@ -425,7 +435,23 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 	}
 
 	go func() {
-		listenChan <- s.listenForIPPackets(inter, dstAddr)
+	loop:
+		for i := 0; i < s.Cfg.BackoffLimit; i++ {
+			select {
+			case tmp := <-s.listenForIPPackets(inter, dstAddr):
+				listenChan <- tmp
+
+				break loop
+			case <-time.After(time.Duration(s.Cfg.Timeout) * time.Second):
+				if i+1 >= s.Cfg.BackoffLimit {
+					listenChan <- &ReadPacket{
+						Err: ErrSynTimedOut,
+					}
+
+					break loop
+				}
+			}
+		}
 	}()
 
 	conn, err := net.DialIP("ip4:tcp", &net.IPAddr{
@@ -436,6 +462,8 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error: dial %s:%s: %w", ip, port, err)
 	}
+
+	fmt.Println(ip)
 
 	defer conn.Close()
 
@@ -492,17 +520,22 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 
 	tmp := <-listenChan
 
+	sr := ScanResult{
+		Service: service,
+		Port:    port,
+	}
+
 	if tmp.Err != nil {
+		if errors.Is(tmp.Err, ErrSynTimedOut) {
+			sr.State = Filtered
+
+			return &sr, nil
+		}
 		return nil, err
 	}
 
 	if err := packet.Unmarshal(tmp.TCPPacket); err != nil {
 		return nil, err
-	}
-
-	sr := ScanResult{
-		Service: service,
-		Port:    port,
 	}
 
 	if packet.FlagIsSYNACK() {
