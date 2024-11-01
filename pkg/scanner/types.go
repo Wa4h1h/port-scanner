@@ -58,7 +58,7 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
-	Timeout:      DefaultTimeout * 20,
+	Timeout:      DefaultTimeout,
 	CScan:        DefaultCScan,
 	BackoffLimit: DefaultBackoffLimit,
 	DelayRetry:   DefaultDelayRetry,

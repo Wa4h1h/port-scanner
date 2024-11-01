@@ -73,7 +73,7 @@ func (s *Scanner) listenForDstUnreachable(ip string) error {
 	return nil
 }
 
-// UdpScan performs a single udp scan
+// UDPScan performs a single udp scan
 func (s *Scanner) UDPScan(ip, port string) (*ScanResult, error) {
 	defer func() {
 		s.Cfg.DelayRetry = DefaultDelayRetry
@@ -241,181 +241,6 @@ func (s *Scanner) TCPScan(ip, port string) (*ScanResult, error) {
 	}, nil
 }
 
-// PingHost resolves host and ping it
-func (s *Scanner) PingHost(host string) (*ping.Stats, error) {
-	ctx, cancel := context.WithTimeout(context.Background(),
-		time.Duration(s.Cfg.Timeout)*time.Second)
-	defer cancel()
-
-	ip, err := dns.HostToIP(ctx, host)
-	if err != nil {
-		return nil, err
-	}
-
-	var stats *ping.Stats
-
-	stats, err = s.Pg.Ping(ip)
-	if err != nil {
-		if strings.Contains(err.Error(), "sendto: no route to host") {
-			return nil, fmt.Errorf("%s %w", host, ErrHostUnavailable)
-		}
-
-		return nil, err
-	}
-
-	if !stats.Up {
-		return nil, fmt.Errorf("ping %s(%s) failed: %w",
-			host, ip, ErrICMPResponseDontMatchEchoReply)
-	}
-
-	return stats, nil
-}
-
-type scanResultError struct {
-	result *ScanResult
-	err    error
-}
-
-func (s *Scanner) execScan(ip, port string, scanType ScanType,
-	wg *sync.WaitGroup, r chan<- *scanResultError,
-) {
-	var (
-		start time.Time
-		end   time.Duration
-		res   *ScanResult
-		err   error
-	)
-
-	defer wg.Done()
-
-	start = time.Now()
-
-	switch scanType {
-	case UDP:
-		res, err = s.UDPScan(ip, port)
-	case TCP:
-		res, err = s.TCPScan(ip, port)
-	case SYN:
-		res, err = s.SynScan(ip, port)
-	}
-
-	end = time.Since(start)
-	res.Rtt = math.Floor(end.Seconds()*100) / 100
-
-	r <- &scanResultError{
-		err:    err,
-		result: res,
-	}
-}
-
-// Scan performs TCP and UDP port scanning if enabled in the configuration.
-func (s *Scanner) scan(ip, port string) ([]*ScanResult, []error) {
-	var (
-		wg   sync.WaitGroup
-		errs = make([]error, 0)
-	)
-
-	resErrChan := make(chan *scanResultError, NumberOfScans)
-	results := make([]*ScanResult, 0, NumberOfScans)
-
-	if !s.Cfg.UDP && !s.Cfg.TCP && !s.Cfg.SYN {
-		return nil, []error{ErrAtLeastOneProtocolMustBeUsed}
-	}
-
-	if s.Cfg.TCP {
-		wg.Add(1)
-
-		go s.execScan(ip, port, TCP, &wg, resErrChan)
-	}
-
-	if s.Cfg.UDP {
-		wg.Add(1)
-
-		go s.execScan(ip, port, UDP, &wg, resErrChan)
-	}
-
-	if s.Cfg.SYN {
-		wg.Add(1)
-
-		go s.execScan(ip, port, SYN, &wg, resErrChan)
-	}
-
-	go func(r chan *scanResultError) {
-		wg.Wait()
-
-		close(r)
-	}(resErrChan)
-
-	for val := range resErrChan {
-		if val.err != nil {
-			errs = append(errs, val.err)
-		}
-
-		if val.result != nil {
-			results = append(results, val.result)
-		}
-	}
-
-	return results, errs
-}
-
-type ReadPacket struct {
-	TCPPacket []byte
-	Err       error
-}
-
-// listenForIPPackets listen for all incoming ipv4 packets
-// returns the packet payload coming from the source IP
-func (s *Scanner) listenForIPPackets(netIntf string, src net.IP) <-chan *ReadPacket {
-	readPacketCh := make(chan *ReadPacket)
-
-	go func(ch chan<- *ReadPacket) {
-		var readPacket ReadPacket
-		// Open the device for capturing
-		handle, err := pcap.OpenLive(netIntf, 1600, true, pcap.BlockForever)
-		if err != nil {
-			readPacket.Err = fmt.Errorf("error: open pcap: %w", err)
-
-			ch <- &readPacket
-
-			return
-		}
-
-		defer handle.Close()
-
-		filter := "ip"
-
-		err = handle.SetBPFFilter(filter)
-		if err != nil {
-			readPacket.Err = fmt.Errorf("error: set BPFFilter: %w", err)
-
-			ch <- &readPacket
-
-			return
-		}
-
-		// Use the handle as a packet source to process all packets
-		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-		for packet := range packetSource.Packets() {
-			// Check for the IP layer
-			ipLayer := packet.Layer(layers.LayerTypeIPv4)
-			if ipLayer != nil {
-				ip, _ := ipLayer.(*layers.IPv4)
-
-				if ip.SrcIP.Equal(src) {
-					readPacket.TCPPacket = ip.Payload
-
-					ch <- &readPacket
-
-					break
-				}
-			}
-		}
-	}(readPacketCh)
-
-	return readPacketCh
-}
-
 // SynScan performs a TCP half-open connection scan.
 func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 	listenChan := make(chan *ReadPacket)
@@ -442,7 +267,7 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 				listenChan <- tmp
 
 				break loop
-			case <-time.After(time.Duration(s.Cfg.Timeout) * time.Millisecond):
+			case <-time.After(time.Duration(s.Cfg.Timeout) * time.Second):
 				if i+1 >= s.Cfg.BackoffLimit {
 					listenChan <- &ReadPacket{
 						Err: ErrSynTimedOut,
@@ -548,7 +373,183 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 	return &sr, nil
 }
 
-// Scan scan all the provided ports(tcp,udp and syn if enabled) on the provided host.
+// PingHost resolves host and ping it
+func (s *Scanner) PingHost(host string) (*ping.Stats, error) {
+	ctx, cancel := context.WithTimeout(context.Background(),
+		time.Duration(s.Cfg.Timeout)*time.Second)
+	defer cancel()
+
+	ip, err := dns.HostToIP(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+
+	var stats *ping.Stats
+
+	stats, err = s.Pg.Ping(ip)
+	if err != nil {
+		if strings.Contains(err.Error(), "sendto: no route to host") {
+			return nil, fmt.Errorf("%s %w", host, ErrHostUnavailable)
+		}
+
+		return nil, err
+	}
+
+	if !stats.Up {
+		return nil, fmt.Errorf("ping %s(%s) failed: %w",
+			host, ip, ErrICMPResponseDontMatchEchoReply)
+	}
+
+	return stats, nil
+}
+
+type scanResultError struct {
+	result *ScanResult
+	err    error
+}
+
+func (s *Scanner) execScan(ip, port string, scanType ScanType,
+	wg *sync.WaitGroup, r chan<- *scanResultError,
+) {
+	var (
+		start time.Time
+		end   time.Duration
+		res   *ScanResult
+		err   error
+	)
+
+	defer wg.Done()
+
+	start = time.Now()
+
+	switch scanType {
+	case UDP:
+		res, err = s.UDPScan(ip, port)
+	case TCP:
+		res, err = s.TCPScan(ip, port)
+	case SYN:
+		res, err = s.SynScan(ip, port)
+	}
+
+	end = time.Since(start)
+	res.Rtt = math.Floor(end.Seconds()*100) / 100
+
+	r <- &scanResultError{
+		err:    err,
+		result: res,
+	}
+}
+
+// scan performs TCP, UDP and SYN port scanning if enabled in the configuration.
+func (s *Scanner) scan(ip, port string) ([]*ScanResult, []error) {
+	var (
+		wg   sync.WaitGroup
+		errs = make([]error, 0)
+	)
+
+	resErrChan := make(chan *scanResultError, NumberOfScans)
+	results := make([]*ScanResult, 0, NumberOfScans)
+
+	if !s.Cfg.UDP && !s.Cfg.TCP && !s.Cfg.SYN {
+		return nil, []error{ErrAtLeastOneProtocolMustBeUsed}
+	}
+
+	if s.Cfg.TCP {
+		wg.Add(1)
+
+		go s.execScan(ip, port, TCP, &wg, resErrChan)
+	}
+
+	if s.Cfg.UDP {
+		wg.Add(1)
+
+		go s.execScan(ip, port, UDP, &wg, resErrChan)
+	}
+
+	if s.Cfg.SYN {
+		wg.Add(1)
+
+		go s.execScan(ip, port, SYN, &wg, resErrChan)
+	}
+
+	go func(r chan *scanResultError) {
+		wg.Wait()
+
+		close(r)
+	}(resErrChan)
+
+	for val := range resErrChan {
+		if val.err != nil {
+			errs = append(errs, val.err)
+		}
+
+		if val.result != nil {
+			results = append(results, val.result)
+		}
+	}
+
+	return results, errs
+}
+
+type ReadPacket struct {
+	TCPPacket []byte
+	Err       error
+}
+
+// listenForIPPackets listen for all incoming ipv4 packets
+// returns the packet payload coming from the source IP
+func (s *Scanner) listenForIPPackets(netIntf string, src net.IP) <-chan *ReadPacket {
+	readPacketCh := make(chan *ReadPacket)
+
+	go func(ch chan<- *ReadPacket) {
+		var readPacket ReadPacket
+
+		// Open the device for capturing
+		handle, err := pcap.OpenLive(netIntf, 1600, true, pcap.BlockForever)
+		if err != nil {
+			readPacket.Err = fmt.Errorf("error: open pcap: %w", err)
+
+			ch <- &readPacket
+
+			return
+		}
+
+		defer handle.Close()
+
+		filter := "ip"
+
+		err = handle.SetBPFFilter(filter)
+		if err != nil {
+			readPacket.Err = fmt.Errorf("error: set BPFFilter: %w", err)
+
+			ch <- &readPacket
+
+			return
+		}
+
+		// Use the handle as a packet source to process all packets
+		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+		for packet := range packetSource.Packets() {
+			// Check for the IP layer
+			ipLayer := packet.Layer(layers.LayerTypeIPv4)
+			if ipLayer != nil {
+				ip, _ := ipLayer.(*layers.IPv4)
+
+				if ip.SrcIP.Equal(src) {
+					readPacket.TCPPacket = ip.Payload
+
+					ch <- &readPacket
+
+					break
+				}
+			}
+		}
+	}(readPacketCh)
+
+	return readPacketCh
+}
+
+// Scan scans all the provided ports(tcp,udp and syn if enabled) on the provided host.
 func (s *Scanner) Scan(host string,
 	ports []string,
 ) ([]*ScanResult, *Stats, []error) {
