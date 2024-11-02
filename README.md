@@ -1,7 +1,8 @@
 # port-scanner
-A port scanner implemented in go. This repository contains a port scanner, ping and tcp packet builder go packages.
+A port scanner implemented in go. This repository contains a port scanner and ping go packages.
 
 ## Using scanner package
+##### Note: syn scanning requires raw-packet privileges
 #### simple scan:
 scan one host and one or multiple ports
 ```go
@@ -118,3 +119,26 @@ PORT            STATE           SERVICE
 
 done scanning 6 host(s) in 1.02s
 ```
+## Using ping package
+##### Note: ping package can be used in two modes privileged(raw-sockets)
+##### and unprivileged(dgram-sockets):
+```go
+import "github.com/Wa4h1h/port-scanner/pkg/ping"
+
+func main() {
+    cfg := ping.Config{
+        Timeout:      1, // insecond
+        PingNum:      3, // number of pings to perform
+        Privileged:   false,
+        BackoffLimit: 5,
+        Cping:        3,  // number of concurrent pings
+        DelayRetry:   15, // in milliseconds
+    }
+    
+    p := ping.NewPinger(&cfg)
+    
+    stats, err := p.Ping("google.com")
+}
+```
+
+##### NOTE: I wrote this library for learning purposes. It may not be completely thought out and error free. Use at Your Own Risk.
