@@ -94,7 +94,7 @@ func (s *Scanner) UDPScan(ip, port string) (*ScanResult, error) {
 		e <- s.listenForDstUnreachable(ip)
 	}(dstUnreachChan)
 
-	ipBytes, err := ping.IPStringToBytes(ip)
+	ipBytes, err := ping.IPStringToIPv4(ip)
 	if err != nil {
 		return nil, err
 	}
@@ -253,12 +253,12 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 	descriptivePort := fmt.Sprintf("%s/tcp", port)
 	service := PortToService(descriptivePort)
 
-	srcAddr, err := ping.IPStringToBytes(localIP)
+	srcAddr, err := ping.IPStringToIPv4(localIP)
 	if err != nil {
 		return nil, err
 	}
 
-	dstAddr, err := ping.IPStringToBytes(ip)
+	dstAddr, err := ping.IPStringToIPv4(ip)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +351,7 @@ func (s *Scanner) SynScan(ip, port string) (*ScanResult, error) {
 
 	sr := ScanResult{
 		Service: service,
-		Port:    port,
+		Port:    descriptivePort,
 	}
 
 	if tmp.Err != nil {

@@ -121,5 +121,6 @@ func (p *Packet) FlagIsSYNACK() bool {
 }
 
 func (p *Packet) FlagIsRST() bool {
-	return p.Header.CtrlFlags == RST
+	return p.Header.CtrlFlags == RST ||
+		p.Header.CtrlFlags == RSTACK
 }

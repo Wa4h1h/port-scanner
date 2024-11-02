@@ -2,6 +2,7 @@ package ping
 
 import (
 	"errors"
+	"net"
 	"strings"
 	"testing"
 
@@ -16,7 +17,7 @@ func TestIPStringToBytes(t *testing.T) {
 		err    error
 		name   string
 		input  string
-		output []byte
+		output net.IP
 	}{
 		{
 			name:   "GivenIPStringToBytes_WhenReturnsErrInvalidIP_returnErrInvalidIP",
@@ -28,12 +29,12 @@ func TestIPStringToBytes(t *testing.T) {
 			name:   "GivenIPStringToBytes_WhenReturnsErr_returnErr",
 			input:  "1.1.invalid.1",
 			output: nil,
-			err:    errors.New("error: convert str to uint"),
+			err:    errors.New("error: resolve ip 1.1.invalid.1"),
 		},
 		{
 			name:   "GivenIPStringToBytes_WhenIpParsed_returnSliceOfBytes",
 			input:  "1.1.1.1",
-			output: []byte{1, 1, 1, 1},
+			output: net.IPv4(1, 1, 1, 1).To4(),
 			err:    nil,
 		},
 	}
@@ -42,7 +43,7 @@ func TestIPStringToBytes(t *testing.T) {
 		t.Run(row.name, func(t *testing.T) {
 			t.Parallel()
 
-			b, err := IPStringToBytes(row.input)
+			b, err := IPStringToIPv4(row.input)
 
 			if row.err != nil {
 				require.NotNil(t, err)

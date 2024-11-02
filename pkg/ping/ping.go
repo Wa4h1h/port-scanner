@@ -190,7 +190,7 @@ func (p *Ping) ping(ip string, id int, seq int) (bool, error) {
 	errChan := make(chan error)
 	done := make(chan bool)
 
-	ipBytes, err = IPStringToBytes(ip)
+	ipBytes, err = IPStringToIPv4(ip)
 	if err != nil {
 		return false, err
 	}
