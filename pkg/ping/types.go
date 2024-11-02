@@ -50,7 +50,7 @@ type visitSeq struct {
 
 type Ping struct {
 	conn            *icmp.PacketConn
-	cfg             *Config
+	cfg             Config
 	awaitingSeqNums sync.Map
 }
 

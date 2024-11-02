@@ -4,7 +4,6 @@ import "fmt"
 
 const (
 	DefaultTimeout      int = 1
-	DefaultCScan        int = 3
 	NumberOfScans       int = 2
 	DefaultBackoffLimit int = 3
 	UDPMaxBufferSize    int = 1500

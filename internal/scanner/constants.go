@@ -6,7 +6,6 @@ import (
 
 const (
 	DefaultTimeout int    = scanner.DefaultTimeout
-	DefaultCScan   int    = scanner.DefaultCScan
 	Ping           bool   = false
 	UDP            bool   = false
 	TCP            bool   = true

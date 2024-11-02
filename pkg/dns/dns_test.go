@@ -3,7 +3,6 @@ package dns
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -55,22 +54,19 @@ func TestIPToHost(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		err    error
 		name   string
 		input  string
 		output string
 	}{
 		{
-			name:   "GivenIPToHost_WhenLookupAddrReturnErr_returnErr",
+			name:   "GivenIPToHost_WhenLookupAddrReturnErr_returnInput",
 			input:  "unknown",
-			output: "",
-			err:    errors.New("error: reverse lookup addr"),
+			output: "unknown",
 		},
 		{
 			name:   "GivenIPToHost_WhenLookupAddrReturnResults_returnHostString",
 			input:  "127.0.0.1",
 			output: "localhost",
-			err:    nil,
 		},
 	}
 
@@ -78,16 +74,9 @@ func TestIPToHost(t *testing.T) {
 		t.Run(row.name, func(t *testing.T) {
 			t.Parallel()
 
-			ip, err := IPToHost(row.input)
+			host := IPToHost(row.input)
 
-			if row.err != nil {
-				require.NotNil(t, err)
-				fmt.Println(err)
-				assert.True(t, strings.Contains(err.Error(), row.err.Error()))
-			} else {
-				require.Nil(t, err)
-				assert.Equal(t, row.output, ip)
-			}
+			assert.Equal(t, row.output, host)
 		})
 	}
 }

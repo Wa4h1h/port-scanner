@@ -19,8 +19,12 @@ import (
 )
 
 func NewPinger(c *Config, options ...func(ping *Ping)) Pinger {
-	p := &Ping{
-		cfg: c,
+	p := new(Ping)
+
+	if c != nil {
+		p.cfg = *c
+	} else {
+		p.cfg = DefaultConfig
 	}
 
 	for _, o := range options {
@@ -28,6 +32,12 @@ func NewPinger(c *Config, options ...func(ping *Ping)) Pinger {
 	}
 
 	return p
+}
+
+func WithConfig(config Config) func(*Ping) {
+	return func(ping *Ping) {
+		ping.cfg = config
+	}
 }
 
 func WithPrivileged(privileged bool) func(*Ping) {

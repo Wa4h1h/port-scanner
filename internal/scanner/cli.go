@@ -40,7 +40,7 @@ func NewCli() *Cli {
 }
 
 func (c *Cli) registerFlags() {
-	c.flags = flag.NewFlagSet("pscan", flag.ExitOnError)
+	c.flags = flag.NewFlagSet("scanner", flag.ExitOnError)
 
 	c.flags.StringVar(&c.s.ports, "p", Ports, "ports to scan")
 	c.flags.StringVar(&c.s.hosts, "hosts", "", "hosts/ips to scan")
@@ -49,7 +49,6 @@ func (c *Cli) registerFlags() {
 	c.flags.BoolVar(&c.s.tcp, "T", TCP, "run tcp scan")
 	c.flags.BoolVar(&c.s.udp, "U", UDP, "run udp scan")
 	c.flags.IntVar(&c.s.timeout, "tS", DefaultTimeout, "port scan timeout in seconds")
-	c.flags.IntVar(&c.s.cscan, "cS", DefaultCScan, "number of concurrent port scans")
 	c.flags.BoolVar(&c.s.privileged, "pv", false,
 		"set pv(privileged) to true which allows using ping with raw socket type instead of dgram socket type")
 	c.flags.IntVar(&c.s.backOffLimit, "sr", scanner.DefaultBackoffLimit,
@@ -77,9 +76,9 @@ Use pscan -h or --help for more information.`)
 	return nil
 }
 
-func (c *Cli) Run(args []string) error {
+func (c *Cli) setConfig(args []string) *scanner.Config {
 	if err := c.parse(args); err != nil {
-		return err
+		panic(err)
 	}
 
 	cfg := scanner.Config{
@@ -87,12 +86,16 @@ func (c *Cli) Run(args []string) error {
 		UDP:          c.s.udp,
 		SYN:          c.s.syn,
 		Timeout:      c.s.timeout,
-		CScan:        c.s.cscan,
 		BackoffLimit: c.s.backOffLimit,
 		Ping:         c.s.ping,
 	}
 
-	s := scanner.NewScanExecutor(&cfg, c.s.privileged)
+	return &cfg
+}
+
+func (c *Cli) Run(args []string) error {
+	cfg := c.setConfig(args)
+	s := scanner.NewScanExecutor(cfg, c.s.privileged)
 
 	hosts := strings.Split(c.s.hosts, ",")
 	ports := strings.Split(c.s.ports, ",")

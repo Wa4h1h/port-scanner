@@ -29,7 +29,11 @@ import (
 func NewScanExecutor(c *Config, privilegedPing bool) ScanExecutor {
 	s := new(Scanner)
 
-	s.Cfg = c
+	if c != nil {
+		s.Cfg = c
+	} else {
+		s.Cfg = &DefaultConfig
+	}
 
 	p := ping.NewPinger(&ping.DefaultConfig,
 		ping.WithPrivileged(privilegedPing))
@@ -86,6 +90,10 @@ func (s *Scanner) UDPScan(ip, port string) (*ScanResult, error) {
 	dstUnreachChan := make(chan error)
 	scanRes := make(chan *ScanResult)
 
+	go func(e chan<- error) {
+		e <- s.listenForDstUnreachable(ip)
+	}(dstUnreachChan)
+
 	ipBytes, err := ping.IPStringToBytes(ip)
 	if err != nil {
 		return nil, err
@@ -105,10 +113,6 @@ func (s *Scanner) UDPScan(ip, port string) (*ScanResult, error) {
 	}
 
 	defer conn.Close()
-
-	go func(e chan<- error) {
-		e <- s.listenForDstUnreachable(ip)
-	}(dstUnreachChan)
 
 	go func() {
 		reply := make([]byte, UDPMaxBufferSize)
