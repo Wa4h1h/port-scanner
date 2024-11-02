@@ -1,6 +1,15 @@
 # port-scanner
 A port scanner implemented in go. This repository contains a port scanner and ping go packages.
 
+### Features
+- [X] UDP scan
+- [X] TCP scan
+- [X] SYN scan(requires root)
+- [X] Ping (dgram/raw sockets)
+- [ ] More tests
+- [ ] IPv4 support
+- [ ] IPv6 support
+
 ## Using scanner package
 ##### Note: syn scanning requires raw-packet privileges
 #### simple scan:
@@ -141,4 +150,4 @@ func main() {
 }
 ```
 
-##### NOTE: I wrote this library for learning purposes. It may not be completely thought out and error free. Use at Your Own Risk.
+##### NOTE: I wrote these libraries for learning purposes. It may not be completely thought out and error free. Use at Your Own Risk.
