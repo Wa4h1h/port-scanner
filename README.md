@@ -137,8 +137,7 @@ PORT            STATE           SERVICE
 done scanning 6 host(s) in 1.02s
 ```
 ## Using ping package
-##### Note: ping package can be used in two modes privileged(raw-sockets)
-##### and unprivileged(dgram-sockets):
+##### Note: ping package can be used in two modes: privileged(raw-sockets) and unprivileged(dgram-sockets):
 ```go
 import "github.com/Wa4h1h/port-scanner/pkg/ping"
 
