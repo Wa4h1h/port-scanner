@@ -436,7 +436,10 @@ func (s *Scanner) execScan(ip, port string, scanType ScanType,
 	}
 
 	end = time.Since(start)
-	res.Rtt = math.Floor(end.Seconds()*100) / 100
+
+	if res != nil {
+		res.Rtt = math.Floor(end.Seconds()*100) / 100
+	}
 
 	r <- &scanResultError{
 		err:    err,

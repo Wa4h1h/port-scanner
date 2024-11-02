@@ -59,8 +59,8 @@ func (c *Cli) registerFlags() {
 func (c *Cli) parse(args []string) error {
 	c.registerFlags()
 	c.flags.Usage = func() {
-		fmt.Fprintln(os.Stdout, `Usage: pscan [options]
-Use pscan -h or --help for more information.`)
+		fmt.Fprintln(os.Stdout, `Usage: scanner [options]
+Use scanner -h or --help for more information.`)
 		fmt.Fprintln(os.Stdout, "Options:")
 		c.flags.PrintDefaults()
 	}
