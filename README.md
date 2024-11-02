@@ -90,7 +90,7 @@ func main (){
 ### Using the CLI to perform port scan
 #### Install
 ```bash
-go install github.com/Wa4h1h/port-scanner@latest
+go install github.com/Wa4h1h/port-scanner/cmd/scanner@latest
 ```
 #### Install
 ```bash
@@ -118,7 +118,7 @@ Options:
 
 #### Example Syn range scan with ping enabled
 ```bash
-sudo go run main.go -U=false -T=false -syn=true  -hosts=scanme.nmap.org -pg=true -p=22-27
+sudo scanner -U=false -T=false -syn=true  -hosts=scanme.nmap.org -pg=true -p=22-27
 
 -----ping scanme.nmap.org(45.33.32.156) stats-----
 45.33.32.156 is Up: 0.49s
