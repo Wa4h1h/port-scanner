@@ -8,7 +8,7 @@ This repository contains:
 * Port scanner CLI tool 
 * Ping go package
 
-### Features
+### Todos
 - [X] UDP scan
 - [X] TCP scan
 - [X] SYN scan(requires root)
