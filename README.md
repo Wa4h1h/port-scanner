@@ -3,7 +3,10 @@
 
 ---
 
-This repository contains a port scanner Go package and a CLI tool that uses it, plus a ping Go package.
+This repository contains:
+* Port scanner go package
+* Port scanner CLI tool 
+* Ping go package
 
 ### Features
 - [X] UDP scan
