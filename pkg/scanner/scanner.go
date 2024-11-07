@@ -580,8 +580,10 @@ func (s *Scanner) Scan(host string,
 
 	if s.Cfg.Ping {
 		pingStats, err = s.PingHost(host)
-		if err != nil {
-			errs = append(errs, err)
+		errs = append(errs, err)
+
+		if errors.Is(err, ErrICMPResponseDontMatchEchoReply) {
+			return nil, nil, errs
 		}
 	}
 
